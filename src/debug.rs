@@ -29,7 +29,7 @@ fn disassemble_instruction(_chunk: &Chunk, op_code: &u8, offset: usize) -> Strin
         OpCode::Return => String::from("OP_RETURN"),
         OpCode::Constant => format!(
             "OP_CONSTANT         {} '{}'",
-            offset + 1,
+            offset,
             _chunk.constants[_chunk.code[offset + 1] as usize]
         ),
     }
