@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::convert::From;
 use std::mem::size_of;
 
 pub struct Chunk {
@@ -35,14 +35,21 @@ pub enum OpCode {
     Constant,
 }
 
-impl TryFrom<u8> for OpCode {
-    type Error = String;
-
-    fn try_from(v: u8) -> Result<Self, Self::Error> {
+impl From<u8> for OpCode {
+    fn from(v: u8) -> Self {
         match v {
-            x if x == OpCode::Return as u8 => Ok(OpCode::Return),
-            x if x == OpCode::Constant as u8 => Ok(OpCode::Constant),
-            _ => Err(format!("No OpCode matched <u8> with value {}", v)),
+            x if x == OpCode::Return as u8 => OpCode::Return,
+            x if x == OpCode::Constant as u8 => OpCode::Constant,
+            _ => panic!("No OpCode matched <u8> with value {}", v),
+        }
+    }
+}
+
+impl OpCode {
+    pub fn size(&self) -> usize {
+        match self {
+            OpCode::Return => 1,
+            OpCode::Constant => 2,
         }
     }
 }
