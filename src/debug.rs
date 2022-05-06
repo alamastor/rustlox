@@ -8,10 +8,10 @@ pub fn disassemble_chunk(_chunk: &Chunk, name: &str) {
     while offset < _chunk.code.len() {
         let op_code = &_chunk.code[offset];
         let line;
-        if offset > 0 && _chunk.lines[offset] == _chunk.lines[offset - 1] {
+        if offset > 0 && _chunk.get_line(offset) == _chunk.get_line(offset - 1) {
             line = String::from("|");
         } else {
-            line = format!("{}", _chunk.lines[offset]);
+            line = format!("{}", _chunk.get_line(offset));
         }
         let instruction = disassemble_instruction(&_chunk, op_code, offset);
         println!(

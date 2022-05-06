@@ -1,5 +1,6 @@
 mod chunk;
 mod debug;
+mod vm;
 
 use chunk::Chunk;
 use chunk::OpCode;
@@ -13,4 +14,9 @@ fn main() {
     _chunk.write(OpCode::Return as u8, 123);
 
     debug::disassemble_chunk(&_chunk, "test chunk");
+
+    match vm::interpret(_chunk) {
+        Ok(()) => {}
+        Err(msg) => panic!(msg),
+    }
 }
