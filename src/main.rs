@@ -1,3 +1,10 @@
+mod chunk;
+mod debug;
+
+use chunk::OpCode;
+use debug::Disassemble;
+
 fn main() {
-    println!("Hello, world!");
+    let chunk = vec![OpCode::Return];
+    chunk.disassemble("test chunk")
 }
