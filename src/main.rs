@@ -1,10 +1,11 @@
 mod chunk;
 mod debug;
 
-use chunk::OpCode;
-use debug::Disassemble;
+use chunk::Chunk;
 
 fn main() {
-    let chunk = vec![OpCode::Return];
+    let mut chunk = Chunk::new();
+    chunk.add_const(1.2);
+    chunk.add_return();
     chunk.disassemble("test chunk")
 }
