@@ -55,6 +55,10 @@ impl Chunk {
         (self.constants.len() - 1) as u8
     }
 
+    pub fn read_constant(&self, byte_index: usize) -> f64 {
+        self.constants[self.code[byte_index] as usize]
+    }
+
     pub fn get_line(&self, instruction_idx: usize) -> usize {
         let mut result: Option<usize> = None;
         for lc in &self.lines {
