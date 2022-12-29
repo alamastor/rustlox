@@ -1,11 +1,14 @@
 mod chunk;
 mod debug;
 
-use chunk::Chunk;
+use chunk::{Chunk, Op};
 
 fn main() {
     let mut chunk = Chunk::new();
-    chunk.add_const(1.2);
-    chunk.add_return();
+    chunk.push_op_code(Op::Constant {
+        value: 1.2,
+        extras: None,
+    });
+    chunk.push_op_code(Op::Return {});
     chunk.disassemble("test chunk")
 }
