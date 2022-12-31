@@ -29,7 +29,13 @@ impl<'a> VM<'a> {
             match op_code {
                 OpCode::Constant { value, idx: _ } => self.stack.push(value),
                 OpCode::ConstantLong { value, idx: _ } => self.stack.push(value),
-                OpCode::Return => break,
+                OpCode::Return => {
+                    match self.stack.pop() {
+                        Some(x) => println!("{x}"),
+                        None => panic!("Tried to pop an empty stack!"),
+                    }
+                    break;
+                }
             }
             self.ip += op_code.code_size()
         }
