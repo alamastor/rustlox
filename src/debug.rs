@@ -1,12 +1,32 @@
-use crate::chunk::{Chunk, Op};
+use crate::chunk::{Chunk, Op, OpInfo};
 
 impl Chunk {
     pub fn disassemble(&self, name: &str) {
         println!("== {name} ==");
 
-        for (offset, op_code) in self.iter().enumerate() {
-            let formatted_op_code = self.format_op_code(op_code);
-            println!("{offset:04} {formatted_op_code}");
+        let mut prev_line_no = None;
+        for OpInfo {
+            op,
+            line_no,
+            code_offset,
+        } in self.iter()
+        {
+            let line_no_str: String;
+            match prev_line_no {
+                Some(x) => {
+                    if line_no == x {
+                        line_no_str = "   |".to_owned()
+                    } else {
+                        line_no_str = format!("{:04}", line_no);
+                    }
+                }
+                None => {
+                    line_no_str = format!("{:4}", line_no);
+                }
+            }
+            prev_line_no = Some(line_no);
+            let formatted_op_code = self.format_op_code(op);
+            println!("{code_offset:04} {line_no_str} {formatted_op_code}");
         }
     }
 
@@ -14,7 +34,7 @@ impl Chunk {
         match op_code {
             Op::Return {} => format!("OP_RETURN"),
             Op::Constant { value, extras } => {
-                format!("OP_CONST {value}  '{}'", extras.unwrap().index)
+                format!("OP_CONSTANT        {} '{value}'", extras.unwrap().index)
             }
         }
     }
