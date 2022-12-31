@@ -25,16 +25,16 @@ impl Chunk {
                 }
             }
             prev_line_no = Some(line_no);
-            let formatted_op_code = self.format_op_code(op_code);
+            let formatted_op_code = format_op_code(&op_code);
             println!("{code_offset:04} {line_no_str} {formatted_op_code}");
         }
     }
+}
 
-    fn format_op_code(&self, op_code: OpCode) -> String {
-        match op_code {
-            OpCode::Return {} => format!("OP_RETURN"),
-            OpCode::Constant { value, idx } => format!("OP_CONSTANT        {idx} '{value}'"),
-            OpCode::ConstantLong { value, idx } => format!("OP_CONSTANT_LONG   {idx} '{value}'"),
-        }
+pub fn format_op_code(op_code: &OpCode) -> String {
+    match op_code {
+        OpCode::Return {} => format!("OP_RETURN"),
+        OpCode::Constant { value, idx } => format!("OP_CONSTANT        {idx} '{value}'"),
+        OpCode::ConstantLong { value, idx } => format!("OP_CONSTANT_LONG   {idx} '{value}'"),
     }
 }

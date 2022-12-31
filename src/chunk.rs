@@ -102,7 +102,7 @@ impl Chunk {
         }
     }
 
-    fn decode(&self, idx: usize) -> OpCode {
+    pub fn decode(&self, idx: usize) -> OpCode {
         let code = self.code[idx];
         match code {
             0 => OpCode::Return {},
