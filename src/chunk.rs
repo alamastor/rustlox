@@ -1,35 +1,44 @@
-use std::convert::TryInto;
-
-pub struct ConstantExtras {
-    pub index: usize,
-}
 pub enum Op {
-    Return {},
-    Constant {
-        value: f64,
-        extras: Option<ConstantExtras>,
-    },
+    Return,
+    Constant { value: f64 },
+}
+impl Op {
+    pub fn to_opcode(&self, chunk: &mut Chunk) -> OpCode {
+        match self {
+            Op::Return => OpCode::Return,
+            Op::Constant { value } => {
+                chunk.constants.push(*value);
+                const BYTE_SIZE: usize = ::std::mem::size_of::<u8>();
+                let const_idx = chunk.constants.len() - 1;
+                match const_idx {
+                    0..=BYTE_SIZE => OpCode::Constant {
+                        value: *value,
+                        idx: (const_idx) as u8,
+                    },
+                    _ => panic!("Tried to store constant index {} as a u8", const_idx),
+                }
+            }
+        }
+    }
 }
 
-// TODO: Can this be a macro?
-impl Op {
+pub enum OpCode {
+    Return,
+    Constant { value: f64, idx: u8 },
+}
+impl OpCode {
+    // TODO: Can this be a macro?
     fn code(&self) -> u8 {
         match self {
-            Op::Return {} => 0,
-            Op::Constant {
-                value: _,
-                extras: _,
-            } => 1,
+            OpCode::Return {} => 0,
+            OpCode::Constant { value: _, idx: _ } => 1,
         }
     }
 
     fn code_size(&self) -> usize {
         match self {
-            Op::Return {} => 1,
-            Op::Constant {
-                value: _,
-                extras: _,
-            } => 2,
+            OpCode::Return {} => 1,
+            OpCode::Constant { value: _, idx: _ } => 2,
         }
     }
 }
@@ -49,16 +58,17 @@ impl Chunk {
         }
     }
 
-    pub fn push_op_code(&mut self, op_code: Op, line_no: u32) {
+    pub fn push_op_code(&mut self, op: Op, line_no: u32) {
+        let op_code = op.to_opcode(self);
         self.code.push(op_code.code());
         match op_code {
-            Op::Return {} => {}
-            Op::Constant { value, extras: _ } => {
-                self.constants.push(value);
-                self.code
-                    .push((self.constants.len() - 1).try_into().unwrap())
-            }
+            OpCode::Return => {}
+            OpCode::Constant { value: _, idx } => self.code.push(idx),
         }
+        self.push_line_no(line_no);
+    }
+
+    fn push_line_no(&mut self, line_no: u32) {
         match self.line_nos.last() {
             Some((val, count)) => {
                 if *val == line_no {
@@ -80,23 +90,21 @@ impl Chunk {
         }
     }
 
-    fn decode(&self, idx: usize) -> Option<Op> {
-        self.code
-            .get(idx)
-            .map(|x| match x {
-                0 => Some(Op::Return {}),
-                1 => {
-                    let value = self.constants[(self.code[idx + 1] as usize)];
-                    Some(Op::Constant {
-                        value,
-                        extras: Some(ConstantExtras {
-                            index: self.code[(idx + 1) as usize] as usize,
-                        }),
-                    })
+    fn decode(&self, idx: usize) -> OpCode {
+        let code = self.code[idx];
+        match code {
+            0 => OpCode::Return {},
+            1 => {
+                let value = self.constants[(self.code[idx + 1] as usize)];
+                OpCode::Constant {
+                    value,
+                    idx: self.code[(idx + 1) as usize],
                 }
-                _ => None,
-            })
-            .flatten()
+            }
+            _ => {
+                panic!("Invalid op code {} found at index {}!", code, idx)
+            }
+        }
     }
 
     fn get_line_no(&self, idx: usize) -> u32 {
@@ -125,22 +133,25 @@ impl<'a> Iterator for ChunkIterator<'a> {
     type Item = OpInfo;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.chunk.decode(self.code_idx).map(|op| {
+        if self.code_idx < self.chunk.code.len() {
+            let op_code = self.chunk.decode(self.code_idx);
             let line_no = self.chunk.get_line_no(self.idx);
             let result = OpInfo {
-                op,
+                op_code,
                 line_no,
                 code_offset: self.code_idx,
             };
             self.idx += 1;
-            self.code_idx += result.op.code_size();
-            result
-        })
+            self.code_idx += result.op_code.code_size();
+            Some(result)
+        } else {
+            None
+        }
     }
 }
 
 pub struct OpInfo {
-    pub op: Op,
+    pub op_code: OpCode,
     pub line_no: u32,
     pub code_offset: usize,
 }

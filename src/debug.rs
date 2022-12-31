@@ -1,4 +1,4 @@
-use crate::chunk::{Chunk, Op, OpInfo};
+use crate::chunk::{Chunk, OpCode, OpInfo};
 
 impl Chunk {
     pub fn disassemble(&self, name: &str) {
@@ -6,7 +6,7 @@ impl Chunk {
 
         let mut prev_line_no = None;
         for OpInfo {
-            op,
+            op_code,
             line_no,
             code_offset,
         } in self.iter()
@@ -25,17 +25,15 @@ impl Chunk {
                 }
             }
             prev_line_no = Some(line_no);
-            let formatted_op_code = self.format_op_code(op);
+            let formatted_op_code = self.format_op_code(op_code);
             println!("{code_offset:04} {line_no_str} {formatted_op_code}");
         }
     }
 
-    fn format_op_code(&self, op_code: Op) -> String {
+    fn format_op_code(&self, op_code: OpCode) -> String {
         match op_code {
-            Op::Return {} => format!("OP_RETURN"),
-            Op::Constant { value, extras } => {
-                format!("OP_CONSTANT        {} '{value}'", extras.unwrap().index)
-            }
+            OpCode::Return {} => format!("OP_RETURN"),
+            OpCode::Constant { value, idx } => format!("OP_CONSTANT        {idx} '{value}'"),
         }
     }
 }
