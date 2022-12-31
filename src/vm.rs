@@ -1,13 +1,18 @@
 use crate::chunk::{Chunk, OpCode};
 
 pub fn interpret(chunk: &Chunk) -> Result<(), InterpretError> {
-    let mut vm = VM { chunk, ip: 0 };
+    let mut vm = VM {
+        chunk,
+        ip: 0,
+        stack: vec![],
+    };
     vm.run()
 }
 
 pub struct VM<'a> {
     chunk: &'a Chunk,
     ip: usize,
+    stack: Vec<f64>,
 }
 impl<'a> VM<'a> {
     fn run(&mut self) -> Result<(), InterpretError> {
@@ -15,10 +20,15 @@ impl<'a> VM<'a> {
             let op_code = self.chunk.decode(self.ip);
             if cfg!(feature = "trace") {
                 self.chunk.disassemble_code(self.ip);
+                print!("          ");
+                for val in self.stack.iter() {
+                    print!("[{val}]");
+                }
+                print!("\n");
             }
             match op_code {
-                OpCode::Constant { value, idx: _ } => println!("{value}"),
-                OpCode::ConstantLong { value, idx: _ } => println!("{value}"),
+                OpCode::Constant { value, idx: _ } => self.stack.push(value),
+                OpCode::ConstantLong { value, idx: _ } => self.stack.push(value),
                 OpCode::Return => break,
             }
             self.ip += op_code.code_size()
