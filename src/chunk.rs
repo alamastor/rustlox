@@ -8,14 +8,19 @@ impl Op {
             Op::Return => OpCode::Return,
             Op::Constant { value } => {
                 chunk.constants.push(*value);
-                const BYTE_SIZE: usize = ::std::mem::size_of::<u8>();
+                const U8_SIZE: usize = ::std::mem::size_of::<u8>();
+                const U16_SIZE: usize = ::std::mem::size_of::<u16>();
                 let const_idx = chunk.constants.len() - 1;
                 match const_idx {
-                    0..=BYTE_SIZE => OpCode::Constant {
+                    0..=U8_SIZE => OpCode::Constant {
                         value: *value,
                         idx: (const_idx) as u8,
                     },
-                    _ => panic!("Tried to store constant index {} as a u8", const_idx),
+                    ..=U16_SIZE => OpCode::ConstantLong {
+                        value: *value,
+                        idx: (const_idx) as u16,
+                    },
+                    _ => panic!("Tried to store constant index {} as a u16", const_idx),
                 }
             }
         }
@@ -25,20 +30,23 @@ impl Op {
 pub enum OpCode {
     Return,
     Constant { value: f64, idx: u8 },
+    ConstantLong { value: f64, idx: u16 },
 }
 impl OpCode {
     // TODO: Can this be a macro?
     fn code(&self) -> u8 {
         match self {
-            OpCode::Return {} => 0,
+            OpCode::Return => 0,
             OpCode::Constant { value: _, idx: _ } => 1,
+            OpCode::ConstantLong { value: _, idx: _ } => 2,
         }
     }
 
     fn code_size(&self) -> usize {
         match self {
-            OpCode::Return {} => 1,
+            OpCode::Return => 1,
             OpCode::Constant { value: _, idx: _ } => 2,
+            OpCode::ConstantLong { value: _, idx: _ } => 3,
         }
     }
 }
@@ -64,6 +72,10 @@ impl Chunk {
         match op_code {
             OpCode::Return => {}
             OpCode::Constant { value: _, idx } => self.code.push(idx),
+            OpCode::ConstantLong { value: _, idx } => {
+                self.code.push((idx & 0xFF) as u8);
+                self.code.push((idx >> 8) as u8);
+            }
         }
         self.push_line_no(line_no);
     }
@@ -95,10 +107,21 @@ impl Chunk {
         match code {
             0 => OpCode::Return {},
             1 => {
-                let value = self.constants[(self.code[idx + 1] as usize)];
+                let const_idx = self.code[idx + 1];
+                let value = self.constants[const_idx as usize];
                 OpCode::Constant {
                     value,
-                    idx: self.code[(idx + 1) as usize],
+                    idx: const_idx,
+                }
+            }
+            2 => {
+                let lo = (self.code[idx + 1]) as u16;
+                let hi = (self.code[idx + 1]) as u16;
+                let const_idx = (hi << 8) + lo;
+                let value = self.constants[const_idx as usize];
+                OpCode::ConstantLong {
+                    value,
+                    idx: const_idx,
                 }
             }
             _ => {

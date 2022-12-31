@@ -34,6 +34,7 @@ impl Chunk {
         match op_code {
             OpCode::Return {} => format!("OP_RETURN"),
             OpCode::Constant { value, idx } => format!("OP_CONSTANT        {idx} '{value}'"),
+            OpCode::ConstantLong { value, idx } => format!("OP_CONSTANT_LONG   {idx} '{value}'"),
         }
     }
 }
