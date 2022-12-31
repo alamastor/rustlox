@@ -36,6 +36,10 @@ impl<'a> VM<'a> {
                     }
                     break;
                 }
+                OpCode::Negate => match self.stack.pop() {
+                    Some(x) => self.stack.push(-x),
+                    None => panic!("Tried to pop an empty stack!"),
+                },
             }
             self.ip += op_code.code_size()
         }

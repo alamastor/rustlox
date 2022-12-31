@@ -57,6 +57,7 @@ impl Chunk {
             OpCode::Return {} => println!("OP_RETURN"),
             OpCode::Constant { value, idx } => println!("OP_CONSTANT        {idx} '{value}'"),
             OpCode::ConstantLong { value, idx } => println!("OP_CONSTANT_LONG   {idx} '{value}'"),
+            OpCode::Negate {} => println!("OP_NEGATE"),
         }
     }
 }

@@ -1,6 +1,7 @@
 pub enum Op {
     Return,
     Constant { value: f64 },
+    Negate,
 }
 impl Op {
     pub fn to_opcode(&self, chunk: &mut Chunk) -> OpCode {
@@ -23,6 +24,7 @@ impl Op {
                     _ => panic!("Tried to store constant index {} as a u16", const_idx),
                 }
             }
+            Op::Negate => OpCode::Negate,
         }
     }
 }
@@ -31,6 +33,7 @@ pub enum OpCode {
     Return,
     Constant { value: f64, idx: u8 },
     ConstantLong { value: f64, idx: u16 },
+    Negate,
 }
 impl OpCode {
     // TODO: Can this be a macro?
@@ -39,6 +42,7 @@ impl OpCode {
             OpCode::Return => 0,
             OpCode::Constant { value: _, idx: _ } => 1,
             OpCode::ConstantLong { value: _, idx: _ } => 2,
+            OpCode::Negate => 3,
         }
     }
 
@@ -47,6 +51,7 @@ impl OpCode {
             OpCode::Return => 1,
             OpCode::Constant { value: _, idx: _ } => 2,
             OpCode::ConstantLong { value: _, idx: _ } => 3,
+            OpCode::Negate => 1,
         }
     }
 }
@@ -76,6 +81,7 @@ impl Chunk {
                 self.code.push((idx & 0xFF) as u8);
                 self.code.push((idx >> 8) as u8);
             }
+            OpCode::Negate => {}
         }
         self.push_line_no(line_no);
     }
@@ -116,6 +122,7 @@ impl Chunk {
                     idx: const_idx,
                 }
             }
+            3 => OpCode::Negate,
             _ => {
                 panic!("Invalid op code {} found at index {}!", code, idx)
             }
