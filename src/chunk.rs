@@ -42,7 +42,7 @@ impl OpCode {
         }
     }
 
-    fn code_size(&self) -> usize {
+    pub fn code_size(&self) -> usize {
         match self {
             OpCode::Return => 1,
             OpCode::Constant { value: _, idx: _ } => 2,
@@ -94,14 +94,6 @@ impl Chunk {
         }
     }
 
-    pub fn iter(&self) -> ChunkIterator {
-        ChunkIterator {
-            chunk: self,
-            idx: 0,
-            code_idx: 0,
-        }
-    }
-
     pub fn decode(&self, idx: usize) -> OpCode {
         let code = self.code[idx];
         match code {
@@ -130,51 +122,28 @@ impl Chunk {
         }
     }
 
-    fn get_line_no(&self, idx: usize) -> u32 {
+    pub fn get_line_no(&self, op_idx: usize) -> u32 {
         let mut instruction_count = 0;
         for (line_no, count) in &self.line_nos {
             instruction_count += count;
-            if instruction_count > (idx as u32) {
+            if instruction_count > (op_idx as u32) {
                 return *line_no;
             }
         }
         panic!(
             "Looking for line number a instruction {} but only {} \
             line numbers recorded!",
-            idx, instruction_count
+            op_idx, instruction_count
         );
     }
-}
 
-pub struct ChunkIterator<'a> {
-    chunk: &'a Chunk,
-    idx: usize,
-    code_idx: usize,
-}
-
-impl<'a> Iterator for ChunkIterator<'a> {
-    type Item = OpInfo;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.code_idx < self.chunk.code.len() {
-            let op_code = self.chunk.decode(self.code_idx);
-            let line_no = self.chunk.get_line_no(self.idx);
-            let result = OpInfo {
-                op_code,
-                line_no,
-                code_offset: self.code_idx,
-            };
-            self.idx += 1;
-            self.code_idx += result.op_code.code_size();
-            Some(result)
-        } else {
-            None
+    pub fn get_op_idx(&self, code_idx: usize) -> usize {
+        let mut i = 0;
+        let mut result = 0;
+        while i < code_idx {
+            i += self.decode(i).code_size();
+            result += 1
         }
+        result
     }
-}
-
-pub struct OpInfo {
-    pub op_code: OpCode,
-    pub line_no: u32,
-    pub code_offset: usize,
 }
