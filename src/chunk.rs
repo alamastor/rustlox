@@ -2,6 +2,10 @@ pub enum Op {
     Return,
     Constant { value: f64 },
     Negate,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 }
 impl Op {
     pub fn to_opcode(&self, chunk: &mut Chunk) -> OpCode {
@@ -9,8 +13,8 @@ impl Op {
             Op::Return => OpCode::Return,
             Op::Constant { value } => {
                 chunk.constants.push(*value);
-                const U8_SIZE: usize = ::std::mem::size_of::<u8>();
-                const U16_SIZE: usize = ::std::mem::size_of::<u16>();
+                const U8_SIZE: usize = ::std::mem::size_of::<u8>() * 8;
+                const U16_SIZE: usize = ::std::mem::size_of::<u16>() * 8;
                 let const_idx = chunk.constants.len() - 1;
                 match const_idx {
                     0..=U8_SIZE => OpCode::Constant {
@@ -25,15 +29,24 @@ impl Op {
                 }
             }
             Op::Negate => OpCode::Negate,
+            Op::Add => OpCode::Add,
+            Op::Subtract => OpCode::Subtract,
+            Op::Multiply => OpCode::Multiply,
+            Op::Divide => OpCode::Divide,
         }
     }
 }
 
+#[derive(Debug)]
 pub enum OpCode {
     Return,
     Constant { value: f64, idx: u8 },
     ConstantLong { value: f64, idx: u16 },
     Negate,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 }
 impl OpCode {
     // TODO: Can this be a macro?
@@ -43,6 +56,10 @@ impl OpCode {
             OpCode::Constant { value: _, idx: _ } => 1,
             OpCode::ConstantLong { value: _, idx: _ } => 2,
             OpCode::Negate => 3,
+            OpCode::Add => 4,
+            OpCode::Subtract => 5,
+            OpCode::Multiply => 6,
+            OpCode::Divide => 7,
         }
     }
 
@@ -52,6 +69,10 @@ impl OpCode {
             OpCode::Constant { value: _, idx: _ } => 2,
             OpCode::ConstantLong { value: _, idx: _ } => 3,
             OpCode::Negate => 1,
+            OpCode::Add => 1,
+            OpCode::Subtract => 1,
+            OpCode::Multiply => 1,
+            OpCode::Divide => 1,
         }
     }
 }
@@ -82,6 +103,10 @@ impl Chunk {
                 self.code.push((idx >> 8) as u8);
             }
             OpCode::Negate => {}
+            OpCode::Add => {}
+            OpCode::Subtract => {}
+            OpCode::Multiply => {}
+            OpCode::Divide => {}
         }
         self.push_line_no(line_no);
     }
@@ -123,6 +148,10 @@ impl Chunk {
                 }
             }
             3 => OpCode::Negate,
+            4 => OpCode::Add,
+            5 => OpCode::Subtract,
+            6 => OpCode::Multiply,
+            7 => OpCode::Divide,
             _ => {
                 panic!("Invalid op code {} found at index {}!", code, idx)
             }

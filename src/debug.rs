@@ -54,10 +54,14 @@ impl Chunk {
         };
         print!("{op_idx:04} {line_no_string} ");
         match op_code {
-            OpCode::Return {} => println!("OP_RETURN"),
+            OpCode::Return => println!("OP_RETURN"),
             OpCode::Constant { value, idx } => println!("OP_CONSTANT        {idx} '{value}'"),
             OpCode::ConstantLong { value, idx } => println!("OP_CONSTANT_LONG   {idx} '{value}'"),
-            OpCode::Negate {} => println!("OP_NEGATE"),
+            OpCode::Negate => println!("OP_NEGATE"),
+            OpCode::Add => println!("OP_ADD"),
+            OpCode::Subtract => println!("OP_SUBTRACT"),
+            OpCode::Multiply => println!("OP_MULTIPLY"),
+            OpCode::Divide => println!("OP_DIVIDE"),
         }
     }
 }
