@@ -1,23 +1,53 @@
 #![feature(trace_macros)]
+#![allow(dead_code)]
 mod chunk;
+mod compiler;
 mod debug;
+mod scanner;
 mod vm;
-
-use chunk::{Chunk, Op};
+use std::io::{self, Write};
 
 fn main() {
-    let mut chunk = Chunk::new();
-    chunk.push_op_code(Op::Constant { value: 1.2 }, 123);
-    chunk.push_op_code(Op::Constant { value: 3.4 }, 123);
-    chunk.push_op_code(Op::Add, 123);
-    chunk.push_op_code(Op::Constant { value: 5.6 }, 123);
-    chunk.push_op_code(Op::Divide, 123);
-    chunk.push_op_code(Op::Negate, 123);
-    chunk.push_op_code(Op::Constant { value: -0.8123 }, 123);
-    chunk.push_op_code(Op::Subtract, 123);
-    chunk.push_op_code(Op::Constant { value: 10_000.0 }, 123);
-    chunk.push_op_code(Op::Multiply, 123);
-    chunk.push_op_code(Op::Return {}, 123);
-    chunk.disassemble("test chunk");
-    vm::interpret(&chunk)
+    match repl() {
+        Ok(()) => {}
+        Err(err) => {
+            println!(
+                "{}",
+                match err {
+                    LoxError::CompileError => "Compile error!",
+                    LoxError::RuntimeError => "Runtime error!",
+                    LoxError::ReadError => "Read error!",
+                }
+            )
+        }
+    }
+}
+
+fn repl() -> Result<(), LoxError> {
+    loop {
+        print!("> ");
+        io::stdout().flush().unwrap();
+        let mut source = String::new();
+        io::stdin().read_line(&mut source)?;
+        vm::interpret(&source)?;
+    }
+}
+
+pub enum LoxError {
+    CompileError,
+    RuntimeError,
+    ReadError,
+}
+impl From<vm::InterpretError> for LoxError {
+    fn from(value: vm::InterpretError) -> Self {
+        match value {
+            vm::InterpretError::CompileError => LoxError::CompileError,
+            vm::InterpretError::RuntimeError => LoxError::RuntimeError,
+        }
+    }
+}
+impl From<std::io::Error> for LoxError {
+    fn from(_value: std::io::Error) -> Self {
+        LoxError::ReadError
+    }
 }

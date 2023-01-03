@@ -1,12 +1,9 @@
 use crate::chunk::{Chunk, OpCode};
+use crate::compiler;
 
-pub fn interpret(chunk: &Chunk) {
-    let mut vm = VM {
-        chunk,
-        ip: 0,
-        stack: vec![],
-    };
-    vm.run()
+pub fn interpret(source: &str) -> Result<(), InterpretError> {
+    compiler::compile(source);
+    Ok(())
 }
 
 macro_rules! bin_op {
@@ -68,4 +65,9 @@ impl<'a> VM<'a> {
             None => panic!("Tried to pop an empty stack!"),
         }
     }
+}
+
+pub enum InterpretError {
+    CompileError,
+    RuntimeError,
 }
