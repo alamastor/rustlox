@@ -1,13 +1,13 @@
-use std::iter::{Enumerate, Peekable};
-
 pub struct Scanner<'a> {
-    iterator: Peekable<Enumerate<::std::str::Chars<'a>>>,
+    source: &'a str,
+    iterator: ::std::iter::Peekable<::std::str::CharIndices<'a>>,
     line: u32,
 }
 impl<'a> Scanner<'a> {
     pub fn new(source: &str) -> Scanner {
         Scanner {
-            iterator: source.chars().enumerate().peekable(),
+            source,
+            iterator: source.char_indices().peekable(),
             line: 1,
         }
     }
@@ -15,14 +15,13 @@ impl<'a> Scanner<'a> {
     fn make_token_data(
         &self,
         token: Token,
-        length: usize,
+        char_len: usize,
         start: usize,
-    ) -> Option<Result<TokenData, String>> {
+    ) -> Option<Result<TokenData<'a>, String>> {
         Some(Ok(TokenData {
             token,
             line: self.line,
-            length,
-            start,
+            source: &self.source[start..start + char_len],
         }))
     }
 
@@ -46,14 +45,69 @@ impl<'a> Scanner<'a> {
             None => false,
         }
     }
+
+    fn string(&mut self, start: usize) -> Option<Result<TokenData<'a>, String>> {
+        let mut len = 1;
+        loop {
+            match self.iterator.next() {
+                Some((_, c)) => match c {
+                    '"' => {
+                        return self.make_token_data(Token::String, len + 1, start);
+                    }
+                    _ => {
+                        len += 1;
+                    }
+                },
+                None => {
+                    return Some(Err("Unterminated string!".to_string()));
+                }
+            }
+        }
+    }
+
+    fn number(&mut self, start: usize) -> Option<Result<TokenData<'a>, String>> {
+        let mut len = 1;
+        loop {
+            match self.iterator.peek() {
+                Some((_, '.')) => {
+                    self.iterator.next();
+                    len += 1;
+                    loop {
+                        match self.iterator.peek() {
+                            Some((_, '0'..='9')) => {
+                                self.iterator.next();
+                                len += 1;
+                            }
+                            Some((_, _)) => {
+                                return self.make_token_data(Token::Number, len, start);
+                            }
+                            None => {
+                                return self.make_token_data(Token::Number, len, start);
+                            }
+                        }
+                    }
+                }
+                Some((_, '0'..='9')) => {
+                    self.iterator.next();
+                    len += 1
+                }
+                Some((_, _)) => {
+                    return self.make_token_data(Token::Number, len, start);
+                }
+                None => {
+                    return self.make_token_data(Token::Number, len, start);
+                }
+            }
+        }
+    }
 }
 
 impl<'a> Iterator for Scanner<'a> {
-    type Item = Result<TokenData, String>;
+    type Item = Result<TokenData<'a>, String>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iterator.next() {
-            Some((i, char)) => match char {
+            Some((i, ch)) => match ch {
                 '(' => self.make_token_data(Token::LeftParen, 1, i),
                 ')' => self.make_token_data(Token::RightParen, 1, i),
                 '{' => self.make_token_data(Token::LeftBrace, 1, i),
@@ -105,7 +159,9 @@ impl<'a> Iterator for Scanner<'a> {
                     self.line += 1;
                     self.next()
                 }
-                _ => Some(Err(format!("Invalid token: '{char}'"))),
+                '"' => self.string(i),
+                '0'..='9' => self.number(i),
+                _ => Some(Err(format!("Invalid token: '{ch}'"))),
             },
             None => None,
         }
@@ -158,9 +214,8 @@ pub enum Token {
     While,
 }
 
-pub struct TokenData {
+pub struct TokenData<'a> {
     pub token: Token,
     pub line: u32,
-    pub length: usize,
-    pub start: usize,
+    pub source: &'a str,
 }

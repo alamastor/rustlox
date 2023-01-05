@@ -15,10 +15,7 @@ pub fn compile(source: &str) {
                     }
                     None => print!("{:04} ", token_data.line),
                 };
-                println!(
-                    "{:?} {} {}",
-                    token_data.token, token_data.start, token_data.length
-                );
+                println!("{:?} {}", token_data.token, token_data.source);
                 line = Some(token_data.line);
             }
             Err(err) => println!("{err}"),
