@@ -1,4 +1,5 @@
 #![feature(trace_macros)]
+#![feature(let_chains)]
 #![allow(dead_code)]
 mod chunk;
 mod compiler;
