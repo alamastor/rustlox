@@ -5,10 +5,27 @@ mod compiler;
 mod debug;
 mod scanner;
 mod vm;
-use std::io::{self, Write};
+use std::{
+    fs,
+    io::{self, Write},
+    process,
+};
 
 fn main() {
-    match repl() {
+    let result;
+    match ::std::env::args().len() {
+        1 => {
+            result = repl();
+        }
+        2 => {
+            result = run_file(std::env::args().collect::<Vec<String>>()[1].as_str());
+        }
+        _ => {
+            eprintln!("Usage: clox [path]");
+            process::exit(64);
+        }
+    }
+    match result {
         Ok(()) => {}
         Err(err) => {
             println!(
@@ -31,6 +48,10 @@ fn repl() -> Result<(), LoxError> {
         io::stdin().read_line(&mut source)?;
         vm::interpret(&source)?;
     }
+}
+
+fn run_file(path: &str) -> Result<(), LoxError> {
+    vm::interpret(fs::read_to_string(path)?.as_str()).map_err(|e| e.into())
 }
 
 pub enum LoxError {
