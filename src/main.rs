@@ -1,5 +1,6 @@
 #![feature(trace_macros)]
 #![feature(let_chains)]
+#![feature(round_char_boundary)]
 #![allow(dead_code)]
 mod chunk;
 mod compiler;
