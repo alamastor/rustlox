@@ -1,13 +1,17 @@
+macro_rules! identifier_chars {
+    () => {'_' | 'a'..='z' | 'A'..='Z'};
+}
+
 pub struct Scanner<'a> {
     source: &'a str,
-    iterator: ::std::iter::Peekable<::std::str::CharIndices<'a>>,
+    chars: ::std::iter::Peekable<::std::str::CharIndices<'a>>,
     line: u32,
 }
 impl<'a> Scanner<'a> {
     pub fn new(source: &str) -> Scanner {
         Scanner {
             source,
-            iterator: source.char_indices().peekable(),
+            chars: source.char_indices().peekable(),
             line: 1,
         }
     }
@@ -33,10 +37,10 @@ impl<'a> Scanner<'a> {
     where
         F: Fn(char) -> bool,
     {
-        match self.iterator.peek() {
+        match self.chars.peek() {
             Some((_, c)) => {
                 if condition(*c) {
-                    self.iterator.next();
+                    self.chars.next();
                     true
                 } else {
                     false
@@ -49,7 +53,7 @@ impl<'a> Scanner<'a> {
     fn string(&mut self, start: usize) -> Option<Result<TokenData<'a>, String>> {
         let mut len = 1;
         loop {
-            match self.iterator.next() {
+            match self.chars.next() {
                 Some((_, c)) => match c {
                     '"' => {
                         return self.make_token_data(Token::String, len + 1, start);
@@ -68,14 +72,14 @@ impl<'a> Scanner<'a> {
     fn number(&mut self, start: usize) -> Option<Result<TokenData<'a>, String>> {
         let mut len = 1;
         loop {
-            match self.iterator.peek() {
+            match self.chars.peek() {
                 Some((_, '.')) => {
-                    self.iterator.next();
+                    self.chars.next();
                     len += 1;
                     loop {
-                        match self.iterator.peek() {
+                        match self.chars.peek() {
                             Some((_, '0'..='9')) => {
-                                self.iterator.next();
+                                self.chars.next();
                                 len += 1;
                             }
                             Some((_, _)) => {
@@ -88,7 +92,7 @@ impl<'a> Scanner<'a> {
                     }
                 }
                 Some((_, '0'..='9')) => {
-                    self.iterator.next();
+                    self.chars.next();
                     len += 1
                 }
                 Some((_, _)) => {
@@ -100,13 +104,46 @@ impl<'a> Scanner<'a> {
             }
         }
     }
+
+    fn identifier(&mut self, start: usize) -> Option<Result<TokenData<'a>, String>> {
+        let mut len = 1;
+        let token = match loop {
+            let c = self.chars.peek();
+            if let Some((_, identifier_chars!())) = c {
+                self.chars.next();
+                len += 1;
+            } else {
+                break &self.source[start..start + len];
+            }
+        } {
+            "and" => Token::And,
+            "class" => Token::Class,
+            "else" => Token::Else,
+            "false" => Token::False,
+            "for" => Token::For,
+            "fun" => Token::Fun,
+            "if" => Token::If,
+            "nil" => Token::Nil,
+            "or" => Token::Or,
+            "print" => Token::Print,
+            "return" => Token::Return,
+            "super" => Token::Super,
+            "true" => Token::True,
+            "this" => Token::This,
+            "var" => Token::Var,
+            "while" => Token::While,
+            _ => Token::Identifier,
+        };
+
+        self.make_token_data(token, len, start)
+    }
 }
 
 impl<'a> Iterator for Scanner<'a> {
     type Item = Result<TokenData<'a>, String>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iterator
+        self.chars
             .next()
             .map(|(i, ch)| match ch {
                 '(' => self.make_token_data(Token::LeftParen, 1, i),
@@ -162,6 +199,7 @@ impl<'a> Iterator for Scanner<'a> {
                 }
                 '"' => self.string(i),
                 '0'..='9' => self.number(i),
+                identifier_chars!() => self.identifier(i),
                 _ => Some(Err(format!("Invalid token: '{ch}'"))),
             })
             .flatten()
