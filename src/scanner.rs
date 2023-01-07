@@ -21,12 +21,12 @@ impl<'a> Scanner<'a> {
         token: Token,
         char_len: usize,
         start: usize,
-    ) -> Option<Result<TokenData<'a>, String>> {
-        Some(Ok(TokenData {
+    ) -> Option<TokenData<'a>> {
+        Some(TokenData {
             token,
             line: self.line,
             source: &self.source[start..start + char_len],
-        }))
+        })
     }
 
     fn match_char(&mut self, c: char) -> bool {
@@ -50,7 +50,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn string(&mut self, start: usize) -> Option<Result<TokenData<'a>, String>> {
+    fn string(&mut self, start: usize) -> Option<TokenData<'a>> {
         let mut len = 1;
         loop {
             match self.chars.next() {
@@ -63,13 +63,17 @@ impl<'a> Scanner<'a> {
                     }
                 },
                 None => {
-                    return Some(Err("Unterminated string!".to_string()));
+                    return self.make_token_data(
+                        Token::Error("Unterminated string!".to_string()),
+                        len,
+                        start,
+                    );
                 }
             }
         }
     }
 
-    fn number(&mut self, start: usize) -> Option<Result<TokenData<'a>, String>> {
+    fn number(&mut self, start: usize) -> Option<TokenData<'a>> {
         let mut len = 1;
         loop {
             match self.chars.peek() {
@@ -105,7 +109,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn identifier(&mut self, start: usize) -> Option<Result<TokenData<'a>, String>> {
+    fn identifier(&mut self, start: usize) -> Option<TokenData<'a>> {
         let mut len = 1;
         let token = match loop {
             let c = self.chars.peek();
@@ -140,7 +144,7 @@ impl<'a> Scanner<'a> {
 }
 
 impl<'a> Iterator for Scanner<'a> {
-    type Item = Result<TokenData<'a>, String>;
+    type Item = TokenData<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.chars
@@ -200,7 +204,11 @@ impl<'a> Iterator for Scanner<'a> {
                 '"' => self.string(i),
                 '0'..='9' => self.number(i),
                 identifier_chars!() => self.identifier(i),
-                _ => Some(Err(format!("Invalid token: '{ch}'"))),
+                _ => self.make_token_data(
+                    Token::Error(format!("Invalid token: '{ch}'")),
+                    ch.len_utf8(),
+                    i,
+                ),
             })
             .flatten()
     }
@@ -250,6 +258,8 @@ pub enum Token {
     True,
     Var,
     While,
+    // Error
+    Error(String),
 }
 
 pub struct TokenData<'a> {
