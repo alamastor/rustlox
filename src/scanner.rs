@@ -106,8 +106,9 @@ impl<'a> Iterator for Scanner<'a> {
     type Item = Result<TokenData<'a>, String>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.iterator.next() {
-            Some((i, ch)) => match ch {
+        self.iterator
+            .next()
+            .map(|(i, ch)| match ch {
                 '(' => self.make_token_data(Token::LeftParen, 1, i),
                 ')' => self.make_token_data(Token::RightParen, 1, i),
                 '{' => self.make_token_data(Token::LeftBrace, 1, i),
@@ -162,9 +163,8 @@ impl<'a> Iterator for Scanner<'a> {
                 '"' => self.string(i),
                 '0'..='9' => self.number(i),
                 _ => Some(Err(format!("Invalid token: '{ch}'"))),
-            },
-            None => None,
-        }
+            })
+            .flatten()
     }
 }
 
