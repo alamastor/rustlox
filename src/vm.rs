@@ -2,7 +2,8 @@ use crate::chunk::{Chunk, OpCode};
 use crate::compiler;
 
 pub fn interpret(source: &str) -> Result<(), InterpretError> {
-    compiler::compile(source);
+    let chunk = compiler::compile(source).map_err(|_| InterpretError::CompileError)?;
+    VM::new(&chunk).run();
     Ok(())
 }
 
@@ -20,6 +21,13 @@ pub struct VM<'a> {
     stack: Vec<f64>,
 }
 impl<'a> VM<'a> {
+    fn new(chunk: &Chunk) -> VM {
+        VM {
+            chunk,
+            ip: 0,
+            stack: vec![],
+        }
+    }
     fn run(&mut self) {
         loop {
             let op_code = self.chunk.decode(self.ip);

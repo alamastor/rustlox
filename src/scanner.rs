@@ -27,6 +27,7 @@ impl<'a> Scanner<'a> {
             token,
             line: self.line,
             source: &self.source[start..self.source.ceil_char_boundary(self.idx + 1)],
+            start,
         })
     }
 
@@ -63,7 +64,7 @@ impl<'a> Scanner<'a> {
                 },
                 None => {
                     return self.make_token_data_with_start(
-                        Token::Error("Unterminated string!".to_string()),
+                        Token::Error(ErrorToken::UnterminatedString),
                         start,
                     );
                 }
@@ -203,13 +204,13 @@ impl<'a> Iterator for Scanner<'a> {
                 '"' => self.string(),
                 '0'..='9' => self.number(),
                 identifier_chars!() => self.identifier(),
-                _ => self.make_token_data(Token::Error(format!("Invalid token: '{ch}'"))),
+                _ => self.make_token_data(Token::Error(ErrorToken::InvalidToken(ch))),
             })
             .flatten()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum Token {
     // Single-character tokens.
     LeftParen,
@@ -254,11 +255,35 @@ pub enum Token {
     Var,
     While,
     // Error
-    Error(String),
+    Error(ErrorToken),
+}
+impl Token {
+    pub fn is_error(&self) -> bool {
+        match self {
+            Token::Error(_) => true,
+            _ => false,
+        }
+    }
 }
 
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum ErrorToken {
+    UnterminatedString,
+    InvalidToken(char),
+}
+impl ErrorToken {
+    pub fn to_string(&self) -> String {
+        match self {
+            ErrorToken::UnterminatedString => "Unterminated string".to_string(),
+            ErrorToken::InvalidToken(char) => format!("Invalid token {}", char),
+        }
+    }
+}
+
+#[derive(PartialEq)]
 pub struct TokenData<'a> {
     pub token: Token,
     pub line: u32,
     pub source: &'a str,
+    pub start: usize,
 }

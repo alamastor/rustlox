@@ -1,6 +1,7 @@
 #![feature(trace_macros)]
 #![feature(let_chains)]
 #![feature(round_char_boundary)]
+#![feature(is_some_and)]
 #![allow(dead_code)]
 mod chunk;
 mod compiler;
@@ -33,9 +34,9 @@ fn main() {
             println!(
                 "{}",
                 match err {
-                    LoxError::CompileError => "Compile error!",
-                    LoxError::RuntimeError => "Runtime error!",
-                    LoxError::ReadError => "Read error!",
+                    LoxError::CompileError => "Compile error!".to_string(),
+                    LoxError::RuntimeError => "Runtime error!".to_string(),
+                    LoxError::ReadError => "Read error!".to_string(),
                 }
             )
         }
