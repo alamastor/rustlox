@@ -42,7 +42,7 @@ impl<'a> Parser<'a> {
                     Token::Error(error_type) => {
                         self.had_error = true;
                         self.panic_mode = true;
-                        error_at(token_data, error_type.to_string());
+                        error_at(token_data, error_type.as_string());
                         self.scanner.next();
                     }
                     _ => {

@@ -37,7 +37,7 @@ impl<'a> VM<'a> {
                 for val in self.stack.iter() {
                     print!("[{val}]");
                 }
-                print!("\n");
+                println!();
             }
             match op_code {
                 OpCode::Constant { value, idx: _ } => self.stack.push(value),

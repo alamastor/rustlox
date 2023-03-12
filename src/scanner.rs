@@ -56,11 +56,9 @@ impl<'a> Scanner<'a> {
         let start = self.idx;
         loop {
             match self.next_char() {
-                Some(c) => match c {
-                    '"' => {
+                Some(c) => {if c =='"' {
                         return self.make_token_data_with_start(Token::String, start);
                     }
-                    _ => {}
                 },
                 None => {
                     return self.make_token_data_with_start(
@@ -146,7 +144,7 @@ impl<'a> Iterator for Scanner<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_char()
-            .map(|ch| match ch {
+            .and_then(|ch| match ch {
                 '(' => self.make_token_data(Token::LeftParen),
                 ')' => self.make_token_data(Token::RightParen),
                 '{' => self.make_token_data(Token::LeftBrace),
@@ -206,7 +204,6 @@ impl<'a> Iterator for Scanner<'a> {
                 identifier_chars!() => self.identifier(),
                 _ => self.make_token_data(Token::Error(ErrorToken::InvalidToken(ch))),
             })
-            .flatten()
     }
 }
 
@@ -259,10 +256,7 @@ pub enum Token {
 }
 impl Token {
     pub fn is_error(&self) -> bool {
-        match self {
-            Token::Error(_) => true,
-            _ => false,
-        }
+        matches!(self, Token::Error(_))
     }
 }
 
@@ -272,10 +266,10 @@ pub enum ErrorToken {
     InvalidToken(char),
 }
 impl ErrorToken {
-    pub fn to_string(&self) -> String {
+    pub fn as_string(&self) -> String {
         match self {
             ErrorToken::UnterminatedString => "Unterminated string".to_string(),
-            ErrorToken::InvalidToken(char) => format!("Invalid token {}", char),
+            ErrorToken::InvalidToken(char) => format!("Invalid token {char}"),
         }
     }
 }

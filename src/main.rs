@@ -15,19 +15,14 @@ use std::{
 };
 
 fn main() {
-    let result;
-    match ::std::env::args().len() {
-        1 => {
-            result = repl();
-        }
-        2 => {
-            result = run_file(std::env::args().collect::<Vec<String>>()[1].as_str());
-        }
+    let result = match ::std::env::args().len() {
+        1 => repl(),
+        2 => run_file(std::env::args().collect::<Vec<String>>()[1].as_str()),
         _ => {
             eprintln!("Usage: clox [path]");
             process::exit(64);
         }
-    }
+    };
     match result {
         Ok(()) => {}
         Err(err) => {

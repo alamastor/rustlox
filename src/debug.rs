@@ -45,11 +45,11 @@ impl Chunk {
                 if line_no == x {
                     "   |".to_owned()
                 } else {
-                    format!("{:04}", line_no)
+                    format!("{line_no:04}")
                 }
             }
             None => {
-                format!("{:4}", line_no)
+                format!("{line_no:4}")
             }
         };
         print!("{op_idx:04} {line_no_string} ");

@@ -14,6 +14,7 @@ impl Op {
             Op::Constant { value } => {
                 chunk.constants.push(*value);
                 const U8_SIZE: usize = ::std::mem::size_of::<u8>() * 8;
+                const U8_SIZE_PLUS_1: usize = ::std::mem::size_of::<u8>() * 8 + 1;
                 const U16_SIZE: usize = ::std::mem::size_of::<u16>() * 8;
                 let const_idx = chunk.constants.len() - 1;
                 match const_idx {
@@ -21,7 +22,7 @@ impl Op {
                         value: *value,
                         idx: (const_idx) as u8,
                     },
-                    ..=U16_SIZE => OpCode::ConstantLong {
+                    U8_SIZE_PLUS_1..=U16_SIZE => OpCode::ConstantLong {
                         value: *value,
                         idx: (const_idx) as u16,
                     },
