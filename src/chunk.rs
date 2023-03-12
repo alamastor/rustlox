@@ -1,6 +1,7 @@
+use crate::value::Value;
 pub enum Op {
     Return,
-    Constant { value: f64 },
+    Constant { value: Value },
     Negate,
     Add,
     Subtract,
@@ -41,8 +42,8 @@ impl Op {
 #[derive(Debug)]
 pub enum OpCode {
     Return,
-    Constant { value: f64, idx: u8 },
-    ConstantLong { value: f64, idx: u16 },
+    Constant { value: Value, idx: u8 },
+    ConstantLong { value: Value, idx: u16 },
     Negate,
     Add,
     Subtract,
@@ -80,7 +81,7 @@ impl OpCode {
 
 pub struct Chunk {
     pub code: Vec<u8>,
-    pub constants: Vec<f64>,
+    pub constants: Vec<Value>,
     pub line_nos: Vec<(u32, u32)>,
 }
 

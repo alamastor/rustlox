@@ -1,24 +1,28 @@
 use crate::chunk::{Chunk, OpCode};
 use crate::compiler;
+use crate::value::Value;
 
 pub fn interpret(source: &str) -> Result<(), InterpretError> {
     let chunk = compiler::compile(source).map_err(|_| InterpretError::CompileError)?;
-    VM::new(&chunk).run();
-    Ok(())
+    VM::new(&chunk).run()
 }
 
 macro_rules! bin_op {
     ($self:ident, $op:tt) => {
-        let b = $self.pop();
-        let a = $self.pop();
-        $self.stack.push(a $op b);
+        if let Value::Number(a) = $self.peek(0) && let Value::Number(b) = $self.peek(1) {
+            $self.pop();
+            $self.pop();
+            $self.stack.push(Value::Number(a $op b));
+        } else {
+            $self.runtime_error("Operands must be numbers.");
+        }
     };
 }
 
 pub struct VM<'a> {
     chunk: &'a Chunk,
     ip: usize,
-    stack: Vec<f64>,
+    stack: Vec<Value>,
 }
 impl<'a> VM<'a> {
     fn new(chunk: &Chunk) -> VM {
@@ -28,7 +32,7 @@ impl<'a> VM<'a> {
             stack: vec![],
         }
     }
-    fn run(&mut self) {
+    fn run(&mut self) -> Result<(), InterpretError> {
         loop {
             let op_code = self.chunk.decode(self.ip);
             if cfg!(feature = "trace") {
@@ -44,11 +48,19 @@ impl<'a> VM<'a> {
                 OpCode::ConstantLong { value, idx: _ } => self.stack.push(value),
                 OpCode::Return => {
                     println!("{}", self.pop());
-                    break;
+                    return Result::Ok(());
                 }
                 OpCode::Negate => {
-                    let val = self.pop();
-                    self.stack.push(-val)
+                    match self.peek(0) {
+                        Value::Number(val) => {
+                            self.pop();
+                            self.stack.push(Value::Number(-val));
+                        }
+                        _ => {
+                            self.runtime_error("Operand must be a number.");
+                            return Result::Err(InterpretError::RuntimeError);
+                        }
+                    };
                 }
                 OpCode::Add => {
                     bin_op!(self, +);
@@ -67,11 +79,22 @@ impl<'a> VM<'a> {
         }
     }
 
-    fn pop(&mut self) -> f64 {
+    fn pop(&mut self) -> Value {
         match self.stack.pop() {
             Some(x) => x,
             None => panic!("Tried to pop an empty stack!"),
         }
+    }
+
+    fn peek(&self, distance: usize) -> Value {
+        self.stack[self.stack.len() - 1 - distance]
+    }
+
+    fn runtime_error(&mut self, message: &str) {
+        eprintln!("{message}");
+        let line = self.chunk.get_line_no(self.chunk.get_op_idx(self.ip - 1));
+        eprintln!("[line {line}] in script");
+        self.stack = vec![];
     }
 }
 

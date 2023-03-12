@@ -7,6 +7,7 @@ mod chunk;
 mod compiler;
 mod debug;
 mod scanner;
+mod value;
 mod vm;
 use std::{
     fs,

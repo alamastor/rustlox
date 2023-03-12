@@ -1,5 +1,6 @@
 use crate::chunk::{Chunk, Op};
 use crate::scanner::{Scanner, Token, TokenData};
+use crate::value::Value;
 pub fn compile(source: &str) -> Result<Chunk, ()> {
     let mut parser = Parser::new(source);
 
@@ -117,7 +118,7 @@ impl<'a> Parser<'a> {
             .source
             .parse::<f64>()
             .unwrap();
-        self.emit_constant(value);
+        self.emit_constant(Value::Number(value));
     }
 
     fn consume(&mut self, expected_token: Option<Token>, message: String) {
@@ -141,7 +142,7 @@ impl<'a> Parser<'a> {
         self.emit_byte(op_2);
     }
 
-    fn emit_constant(&mut self, value: f64) {
+    fn emit_constant(&mut self, value: Value) {
         self.emit_byte(Op::Constant { value });
     }
 
