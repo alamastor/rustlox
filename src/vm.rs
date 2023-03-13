@@ -62,6 +62,9 @@ impl<'a> VM<'a> {
                         }
                     };
                 }
+                OpCode::Nil => {self.stack.push(Value::Nil);}
+                OpCode::True => {self.stack.push(Value::Bool(true));}
+                OpCode::False => {self.stack.push(Value::Bool(false));}
                 OpCode::Add => {
                     bin_op!(self, +);
                 }

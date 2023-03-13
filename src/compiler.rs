@@ -96,7 +96,7 @@ impl<'a> Parser<'a> {
 
     fn binary(&mut self) {
         let op_type = self.prev_token.as_ref().unwrap().token;
-        let precedence = self.prev_token.as_ref().unwrap().token.get_precedence();
+        let precedence = op_type.get_precedence();
         self.parse_precedence((precedence as usize) + 1);
         match op_type {
             Token::Plus => self.emit_byte(Op::Add),
@@ -119,6 +119,21 @@ impl<'a> Parser<'a> {
             .parse::<f64>()
             .unwrap();
         self.emit_constant(Value::Number(value));
+    }
+
+    fn literal(&mut self) {
+        match self.prev_token.as_ref().unwrap().token {
+            Token::False => {
+                self.emit_byte(Op::False);
+            }
+            Token::Nil => {
+                self.emit_byte(Op::Nil);
+            }
+            Token::True => {
+                self.emit_byte(Op::True);
+            }
+            unexpected => {panic!("Expected a literal token; got {:?}", unexpected);}
+        }
     }
 
     fn consume(&mut self, expected_token: Option<Token>, message: String) {
@@ -157,6 +172,9 @@ impl<'a> Parser<'a> {
             Token::LeftParen => self.grouping(),
             Token::Minus => self.unary(),
             Token::Number => self.number(),
+            Token::False => self.literal(),
+            Token::True => self.literal(),
+            Token::Nil => self.literal(),
             _ => self.error("Expect expression".to_string()),
         }
 

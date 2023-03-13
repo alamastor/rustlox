@@ -2,6 +2,9 @@ use crate::value::Value;
 pub enum Op {
     Return,
     Constant { value: Value },
+    Nil,
+    False,
+    True,
     Negate,
     Add,
     Subtract,
@@ -35,6 +38,9 @@ impl Op {
             Op::Subtract => OpCode::Subtract,
             Op::Multiply => OpCode::Multiply,
             Op::Divide => OpCode::Divide,
+            Op::Nil => OpCode::Nil,
+            Op::True => OpCode::True,
+            Op::False => OpCode::False,
         }
     }
 }
@@ -44,6 +50,9 @@ pub enum OpCode {
     Return,
     Constant { value: Value, idx: u8 },
     ConstantLong { value: Value, idx: u16 },
+    Nil,
+    True,
+    False,
     Negate,
     Add,
     Subtract,
@@ -62,6 +71,9 @@ impl OpCode {
             OpCode::Subtract => 5,
             OpCode::Multiply => 6,
             OpCode::Divide => 7,
+            OpCode::Nil => 8,
+            OpCode::True => 9,
+            OpCode::False => 10,
         }
     }
 
@@ -75,6 +87,9 @@ impl OpCode {
             OpCode::Subtract => 1,
             OpCode::Multiply => 1,
             OpCode::Divide => 1,
+            OpCode::Nil => 1,
+            OpCode::True => 1,
+            OpCode::False => 1,
         }
     }
 }
@@ -109,6 +124,9 @@ impl Chunk {
             OpCode::Subtract => {}
             OpCode::Multiply => {}
             OpCode::Divide => {}
+            OpCode::Nil => {}
+            OpCode::True => {}
+            OpCode::False =>{}
         }
         self.push_line_no(line_no);
     }
@@ -154,6 +172,9 @@ impl Chunk {
             5 => OpCode::Subtract,
             6 => OpCode::Multiply,
             7 => OpCode::Divide,
+            8 => OpCode::Nil,
+            9 => OpCode::True,
+            10 => OpCode::False,
             _ => {
                 panic!("Invalid op code {} found at index {}!", code, idx)
             }

@@ -62,6 +62,9 @@ impl Chunk {
             OpCode::Subtract => println!("OP_SUBTRACT"),
             OpCode::Multiply => println!("OP_MULTIPLY"),
             OpCode::Divide => println!("OP_DIVIDE"),
+            OpCode::False => println!("OP_FALSE"),
+            OpCode::True => println!("OP_TRUE"),
+            OpCode::Nil => println!("OP_NIL"),
         }
     }
 }
