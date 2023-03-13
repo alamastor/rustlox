@@ -77,6 +77,10 @@ impl<'a> VM<'a> {
                 OpCode::Divide => {
                     bin_op!(self, /);
                 }
+                OpCode::Not => {
+                    let bool = Value::Bool(is_falsey(self.pop()));
+                    self.stack.push(bool);
+                }
             }
             self.ip += op_code.code_size()
         }
@@ -99,9 +103,18 @@ impl<'a> VM<'a> {
         eprintln!("[line {line}] in script");
         self.stack = vec![];
     }
+
 }
 
 pub enum InterpretError {
     CompileError,
     RuntimeError,
+}
+
+fn is_falsey(value: Value) -> bool {
+    match value {
+        Value::Nil => true,
+        Value::Bool(x) => !x,
+        _ => false
+    }
 }

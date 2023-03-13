@@ -10,6 +10,7 @@ pub enum Op {
     Subtract,
     Multiply,
     Divide,
+    Not,
 }
 impl Op {
     pub fn to_opcode(&self, chunk: &mut Chunk) -> OpCode {
@@ -41,6 +42,7 @@ impl Op {
             Op::Nil => OpCode::Nil,
             Op::True => OpCode::True,
             Op::False => OpCode::False,
+            Op::Not => OpCode::Not,
         }
     }
 }
@@ -58,6 +60,7 @@ pub enum OpCode {
     Subtract,
     Multiply,
     Divide,
+    Not,
 }
 impl OpCode {
     // TODO: Can this be a macro?
@@ -74,22 +77,15 @@ impl OpCode {
             OpCode::Nil => 8,
             OpCode::True => 9,
             OpCode::False => 10,
+            OpCode::Not => 11,
         }
     }
 
     pub fn code_size(&self) -> usize {
         match self {
-            OpCode::Return => 1,
             OpCode::Constant { value: _, idx: _ } => 2,
             OpCode::ConstantLong { value: _, idx: _ } => 3,
-            OpCode::Negate => 1,
-            OpCode::Add => 1,
-            OpCode::Subtract => 1,
-            OpCode::Multiply => 1,
-            OpCode::Divide => 1,
-            OpCode::Nil => 1,
-            OpCode::True => 1,
-            OpCode::False => 1,
+            _ => 1,
         }
     }
 }
@@ -113,20 +109,12 @@ impl Chunk {
         let op_code = op.to_opcode(self);
         self.code.push(op_code.code());
         match op_code {
-            OpCode::Return => {}
             OpCode::Constant { value: _, idx } => self.code.push(idx),
             OpCode::ConstantLong { value: _, idx } => {
                 self.code.push((idx & 0xFF) as u8);
                 self.code.push((idx >> 8) as u8);
             }
-            OpCode::Negate => {}
-            OpCode::Add => {}
-            OpCode::Subtract => {}
-            OpCode::Multiply => {}
-            OpCode::Divide => {}
-            OpCode::Nil => {}
-            OpCode::True => {}
-            OpCode::False =>{}
+            _ => {}
         }
         self.push_line_no(line_no);
     }
@@ -175,6 +163,7 @@ impl Chunk {
             8 => OpCode::Nil,
             9 => OpCode::True,
             10 => OpCode::False,
+            11 => OpCode::Not,
             _ => {
                 panic!("Invalid op code {} found at index {}!", code, idx)
             }

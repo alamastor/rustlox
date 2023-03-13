@@ -83,12 +83,14 @@ impl<'a> Parser<'a> {
     }
 
     fn unary(&mut self) {
-        self.parse_precedence(Precedence::Unary as usize);
-
-        let op_type = &self.prev_token.as_ref().unwrap().token;
+        let op_type = self.prev_token.as_ref().unwrap().token;
+        self.expression();
         match op_type {
             Token::Minus => {
                 self.emit_byte(Op::Negate);
+            }
+            Token::Bang => {
+                self.emit_byte(Op::Not)
             }
             _ => panic!("Unexpected token: {:?}!", op_type),
         }
@@ -175,6 +177,7 @@ impl<'a> Parser<'a> {
             Token::False => self.literal(),
             Token::True => self.literal(),
             Token::Nil => self.literal(),
+            Token::Bang => self.unary(),
             _ => self.error("Expect expression".to_string()),
         }
 
