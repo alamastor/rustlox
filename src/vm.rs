@@ -1,10 +1,15 @@
 use crate::chunk::{Chunk, OpCode};
 use crate::compiler;
 use crate::value::Value;
+use std::io::Write;
 
-pub fn interpret(source: &str) -> Result<(), InterpretError> {
+pub fn interpret<O: Write, E: Write>(
+    source: &str,
+    out_stream: &mut O,
+    err_stream: &mut E,
+) -> Result<(), InterpretError> {
     let chunk = compiler::compile(source).map_err(|_| InterpretError::CompileError)?;
-    VM::new(&chunk).run()
+    VM::new(&chunk, out_stream, err_stream).run()
 }
 
 macro_rules! bin_op {
@@ -19,17 +24,21 @@ macro_rules! bin_op {
     };
 }
 
-pub struct VM<'a> {
+pub struct VM<'a, O: Write, E: Write> {
     chunk: &'a Chunk,
     ip: usize,
     stack: Vec<Value>,
+    out_stream: &'a mut O,
+    err_stream: &'a mut E,
 }
-impl<'a> VM<'a> {
-    fn new(chunk: &Chunk) -> VM {
+impl<'a, O: Write, E: Write> VM<'a, O, E> {
+    fn new(chunk: &'a Chunk, out_stream: &'a mut O, err_stream: &'a mut E) -> VM<'a, O, E> {
         VM {
             chunk,
             ip: 0,
             stack: vec![],
+            out_stream,
+            err_stream,
         }
     }
     fn run(&mut self) -> Result<(), InterpretError> {
@@ -47,7 +56,8 @@ impl<'a> VM<'a> {
                 OpCode::Constant { value, idx: _ } => self.stack.push(value),
                 OpCode::ConstantLong { value, idx: _ } => self.stack.push(value),
                 OpCode::Return => {
-                    println!("{}", self.pop());
+                    let return_val = self.pop();
+                    writeln!(self.out_stream, "{return_val}").unwrap();
                     return Result::Ok(());
                 }
                 OpCode::Negate => {
@@ -62,9 +72,15 @@ impl<'a> VM<'a> {
                         }
                     };
                 }
-                OpCode::Nil => {self.stack.push(Value::Nil);}
-                OpCode::True => {self.stack.push(Value::Bool(true));}
-                OpCode::False => {self.stack.push(Value::Bool(false));}
+                OpCode::Nil => {
+                    self.stack.push(Value::Nil);
+                }
+                OpCode::True => {
+                    self.stack.push(Value::Bool(true));
+                }
+                OpCode::False => {
+                    self.stack.push(Value::Bool(false));
+                }
                 OpCode::Add => {
                     bin_op!(self, +);
                 }
@@ -103,9 +119,9 @@ impl<'a> VM<'a> {
         eprintln!("[line {line}] in script");
         self.stack = vec![];
     }
-
 }
 
+#[derive(Debug)]
 pub enum InterpretError {
     CompileError,
     RuntimeError,
@@ -115,6 +131,6 @@ fn is_falsey(value: Value) -> bool {
     match value {
         Value::Nil => true,
         Value::Bool(x) => !x,
-        _ => false
+        _ => false,
     }
 }
