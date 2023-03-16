@@ -1,6 +1,7 @@
 use lox::vm::interpret;
-use std::io::{Cursor, Read, Seek, SeekFrom};
-use std::str;
+use std::io::Cursor;
+
+mod util;
 
 #[test]
 fn add() {
@@ -9,13 +10,17 @@ fn add() {
 
     interpret("1 + 1", &mut out_cursor, &mut err_cursor).unwrap();
 
-    let mut out = Vec::new();
-    out_cursor.seek(SeekFrom::Start(0)).unwrap();
-    out_cursor.read_to_end(& mut out).unwrap();
-    let mut err = Vec::new();
-    err_cursor.seek(SeekFrom::Start(0)).unwrap();
-    err_cursor.read_to_end(& mut err).unwrap();
+    assert_eq!(util::read_cursor(out_cursor), "2\n");
+    assert_eq!(util::read_cursor(err_cursor), "");
+}
 
-    assert_eq!(str::from_utf8(&out).unwrap(), "2\n");
-    assert_eq!(str::from_utf8(&err).unwrap(), "");
+#[test]
+fn not() {
+    let mut out_cursor = Cursor::new(Vec::new());
+    let mut err_cursor = Cursor::new(Vec::new());
+
+    interpret("!true", &mut out_cursor, &mut err_cursor).unwrap();
+
+    assert_eq!(util::read_cursor(out_cursor), "false\n");
+    assert_eq!(util::read_cursor(err_cursor), "");
 }
