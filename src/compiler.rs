@@ -89,9 +89,7 @@ impl<'a> Parser<'a> {
             Token::Minus => {
                 self.emit_byte(Op::Negate);
             }
-            Token::Bang => {
-                self.emit_byte(Op::Not)
-            }
+            Token::Bang => self.emit_byte(Op::Not),
             _ => panic!("Unexpected token: {:?}!", op_type),
         }
     }
@@ -105,6 +103,12 @@ impl<'a> Parser<'a> {
             Token::Minus => self.emit_byte(Op::Subtract),
             Token::Star => self.emit_byte(Op::Multiply),
             Token::Slash => self.emit_byte(Op::Divide),
+            Token::BangEqual => self.emit_bytes(Op::Equal, Op::Not),
+            Token::EqualEqual => self.emit_byte(Op::Equal),
+            Token::Greater => self.emit_byte(Op::Greater),
+            Token::GreaterEqual => self.emit_bytes(Op::Less, Op::Not),
+            Token::Less => self.emit_byte(Op::Less),
+            Token::LessEqual => self.emit_bytes(Op::Greater, Op::Not),
             _ => panic!(
                 "Unexpected token: {:?}!",
                 self.prev_token.as_ref().unwrap().token
@@ -134,7 +138,9 @@ impl<'a> Parser<'a> {
             Token::True => {
                 self.emit_byte(Op::True);
             }
-            unexpected => {panic!("Expected a literal token; got {:?}", unexpected);}
+            unexpected => {
+                panic!("Expected a literal token; got {:?}", unexpected);
+            }
         }
     }
 
@@ -188,6 +194,12 @@ impl<'a> Parser<'a> {
                 Token::Plus => self.binary(),
                 Token::Slash => self.binary(),
                 Token::Star => self.binary(),
+                Token::BangEqual => self.binary(),
+                Token::EqualEqual => self.binary(),
+                Token::Greater => self.binary(),
+                Token::GreaterEqual => self.binary(),
+                Token::Less => self.binary(),
+                Token::LessEqual => self.binary(),
                 _ => self.error("Expect expression".to_string()),
             }
         }
@@ -228,6 +240,12 @@ impl Token {
             Token::Star => Precedence::Factor,
             Token::Minus => Precedence::Term,
             Token::Plus => Precedence::Term,
+            Token::BangEqual =>Precedence::Equality,
+            Token::EqualEqual => Precedence::Equality,
+            Token::Greater => Precedence::Comparison,
+            Token::GreaterEqual => Precedence::Comparison,
+            Token::Less => Precedence::Comparison,
+            Token::LessEqual => Precedence::Comparison,
             _ => Precedence::None,
         }
     }

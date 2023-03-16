@@ -65,7 +65,10 @@ impl Chunk {
             OpCode::False => println!("OP_FALSE"),
             OpCode::True => println!("OP_TRUE"),
             OpCode::Nil => println!("OP_NIL"),
-            OpCode::Not => println!("Op_NOT"),
+            OpCode::Not => println!("OP_NOT"),
+            OpCode::Equal => println!("OP_EQUAL"),
+            OpCode::Greater => println!("OP_GREATER"),
+            OpCode::Less => println!("OP_LESS"),
         }
     }
 }

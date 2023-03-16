@@ -17,7 +17,21 @@ macro_rules! bin_op {
         if let Value::Number(a) = $self.peek(0) && let Value::Number(b) = $self.peek(1) {
             $self.pop();
             $self.pop();
+
             $self.stack.push(Value::Number(a $op b));
+        } else {
+            $self.runtime_error("Operands must be numbers.");
+        }
+    };
+}
+
+macro_rules! bool_bin_op {
+    ($self:ident, $op:tt) => {
+        if let Value::Number(a) = $self.peek(0) && let Value::Number(b) = $self.peek(1) {
+            $self.pop();
+            $self.pop();
+
+            $self.stack.push(Value::Bool(a $op b));
         } else {
             $self.runtime_error("Operands must be numbers.");
         }
@@ -97,6 +111,17 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                     let bool = Value::Bool(is_falsey(self.pop()));
                     self.stack.push(bool);
                 }
+                OpCode::Equal => {
+                    let a = self.pop();
+                    let b = self.pop();
+                    self.stack.push(Value::Bool(values_equal(a, b)))
+                }
+                OpCode::Greater => {
+                    bool_bin_op!(self, >);
+                }
+                OpCode::Less => {
+                    bool_bin_op!(self, <);
+                }
             }
             self.ip += op_code.code_size()
         }
@@ -132,5 +157,13 @@ fn is_falsey(value: Value) -> bool {
         Value::Nil => true,
         Value::Bool(x) => !x,
         _ => false,
+    }
+}
+
+fn values_equal(a: Value, b: Value) -> bool {
+    match a {
+        Value::Bool(_) => a == b,
+        Value::Nil => true,
+        Value::Number(_) => a == b,
     }
 }

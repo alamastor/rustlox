@@ -1,12 +1,12 @@
 mod util;
+use rstest::*;
 use util::assert_interpreter_output;
 
-#[test]
-fn add() {
-    assert_interpreter_output("1 + 1", "2\n", "");
-}
-
-#[test]
-fn not() {
-    assert_interpreter_output("!true", "false\n", "");
+#[rstest]
+#[case::add("1 + 1", "2\n", "")]
+#[case::not("!true", "false\n", "")]
+#[case::equal_false("1 == 2", "false\n", "")]
+#[case::equal_true("1 == 1", "true\n", "")]
+fn interpreter(#[case] input: &str, #[case] expected_output: &str, #[case] expected_error: &str) {
+    assert_interpreter_output(input, expected_output, expected_error) 
 }

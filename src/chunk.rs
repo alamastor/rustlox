@@ -11,6 +11,9 @@ pub enum Op {
     Multiply,
     Divide,
     Not,
+    Equal,
+    Greater,
+    Less,
 }
 impl Op {
     pub fn to_opcode(&self, chunk: &mut Chunk) -> OpCode {
@@ -43,6 +46,9 @@ impl Op {
             Op::True => OpCode::True,
             Op::False => OpCode::False,
             Op::Not => OpCode::Not,
+            Op::Equal => OpCode::Equal,
+            Op::Greater => OpCode::Greater,
+            Op::Less => OpCode::Less,
         }
     }
 }
@@ -61,6 +67,9 @@ pub enum OpCode {
     Multiply,
     Divide,
     Not,
+    Equal,
+    Greater,
+    Less,
 }
 impl OpCode {
     // TODO: Can this be a macro?
@@ -78,6 +87,9 @@ impl OpCode {
             OpCode::True => 9,
             OpCode::False => 10,
             OpCode::Not => 11,
+            OpCode::Equal => 12,
+            OpCode::Greater => 13,
+            OpCode::Less => 14,
         }
     }
 
@@ -164,6 +176,9 @@ impl Chunk {
             9 => OpCode::True,
             10 => OpCode::False,
             11 => OpCode::Not,
+            12 => OpCode::Equal,
+            13 => OpCode::Greater,
+            14 => OpCode::Less,
             _ => {
                 panic!("Invalid op code {} found at index {}!", code, idx)
             }

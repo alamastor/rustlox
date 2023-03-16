@@ -8,5 +8,8 @@ edition = "2018"
 
 [dependencies]
 
+[dev-dependencies]
+rstest = "0.16.0"
+
 [features]
 trace = []
