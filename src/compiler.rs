@@ -3,9 +3,12 @@ use crate::scanner::{Scanner, Token, TokenData};
 use crate::value::Value;
 pub fn compile(source: &str) -> Result<Chunk, ()> {
     let mut parser = Parser::new(source);
+    if cfg!(feature = "trace") {
+        parser.chunk.disassemble("chunk");
+    }
 
     parser.expression();
-    parser.consume(None, "Expected EOF".to_string());
+    parser.consume(Token::Eof, "Expected EOF".to_string());
     parser.end_compiler();
     if parser.had_error {
         Err(())
@@ -15,9 +18,9 @@ pub fn compile(source: &str) -> Result<Chunk, ()> {
 }
 
 struct Parser<'a> {
-    scanner: ::std::iter::Peekable<Scanner<'a>>,
+    scanner: Scanner<'a>,
     chunk: Chunk,
-    prev_token: Option<TokenData<'a>>,
+    prev_token: TokenData<'a>,
     had_error: bool,
     panic_mode: bool,
 }
@@ -25,9 +28,14 @@ struct Parser<'a> {
 impl<'a> Parser<'a> {
     fn new(source: &'a str) -> Parser<'a> {
         Parser {
-            scanner: Scanner::new(source).peekable(),
+            scanner: Scanner::new(source),
             chunk: Chunk::new(),
-            prev_token: None,
+            prev_token: TokenData {
+                token: Token::Sof,
+                line: 0,
+                source: "",
+                start: 0,
+            },
             had_error: false,
             panic_mode: false,
         }
@@ -35,39 +43,33 @@ impl<'a> Parser<'a> {
 
     fn advance(&mut self) {
         self.prev_token = self.scanner.next();
-
         loop {
             let token_data = self.scanner.peek();
-            match token_data {
-                Some(td) => match &td.token {
-                    Token::Error(error_type) => {
-                        self.had_error = true;
-                        self.panic_mode = true;
-                        error_at(token_data, error_type.as_string());
-                        self.scanner.next();
-                    }
-                    _ => {
-                        break;
-                    }
-                },
-                None => {
+            match token_data.token {
+                Token::Error(error_type) => {
+                    self.had_error = true;
+                    self.panic_mode = true;
+                    error_at(&token_data, error_type.as_string());
+                    self.scanner.next();
+                }
+                _ => {
                     break;
                 }
-            }
+            };
         }
     }
 
     fn error(&mut self, message: String) {
         self.had_error = true;
         self.panic_mode = true;
-        error_at(self.prev_token.as_ref(), message)
+        error_at(&self.prev_token, message)
     }
 
     fn error_at_current(&mut self, message: String) {
         self.had_error = true;
         self.panic_mode = true;
         let token_data = self.scanner.peek();
-        error_at(token_data, message)
+        error_at(&token_data, message)
     }
 
     fn expression(&mut self) {
@@ -77,13 +79,13 @@ impl<'a> Parser<'a> {
     fn grouping(&mut self) {
         self.expression();
         self.consume(
-            Some(Token::RightParen),
+            Token::RightParen,
             "Expect ')' after expression.".to_string(),
         );
     }
 
     fn unary(&mut self) {
-        let op_type = self.prev_token.as_ref().unwrap().token;
+        let op_type = self.prev_token.token;
         self.expression();
         match op_type {
             Token::Minus => {
@@ -95,7 +97,7 @@ impl<'a> Parser<'a> {
     }
 
     fn binary(&mut self) {
-        let op_type = self.prev_token.as_ref().unwrap().token;
+        let op_type = self.prev_token.token;
         let precedence = op_type.get_precedence();
         self.parse_precedence((precedence as usize) + 1);
         match op_type {
@@ -109,26 +111,18 @@ impl<'a> Parser<'a> {
             Token::GreaterEqual => self.emit_bytes(Op::Less, Op::Not),
             Token::Less => self.emit_byte(Op::Less),
             Token::LessEqual => self.emit_bytes(Op::Greater, Op::Not),
-            _ => panic!(
-                "Unexpected token: {:?}!",
-                self.prev_token.as_ref().unwrap().token
-            ),
+            _ => panic!("Unexpected token: {:?}!", self.prev_token.token),
         }
     }
 
     fn number(&mut self) {
-        let value = self
-            .prev_token
-            .as_ref()
-            .unwrap()
-            .source
-            .parse::<f64>()
-            .unwrap();
+        println!("{:?}", self.prev_token);
+        let value = self.prev_token.source.parse::<f64>().unwrap();
         self.emit_constant(Value::Number(value));
     }
 
     fn literal(&mut self) {
-        match self.prev_token.as_ref().unwrap().token {
+        match self.prev_token.token {
             Token::False => {
                 self.emit_byte(Op::False);
             }
@@ -144,8 +138,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn consume(&mut self, expected_token: Option<Token>, message: String) {
-        if self.scanner.peek().map(|td| &td.token) == expected_token.as_ref() {
+    fn consume(&mut self, expected_token: Token, message: String) {
+        if self.scanner.peek().token == expected_token {
             self.advance();
         } else {
             self.error_at_current(message)
@@ -153,11 +147,8 @@ impl<'a> Parser<'a> {
     }
 
     fn emit_byte(&mut self, op: Op) {
-        let line = match self.prev_token.as_ref() {
-            Some(token_data) => token_data.line,
-            None => 1,
-        };
-        self.chunk.push_op_code(op, line)
+        println!("emitting {op:?}");
+        self.chunk.push_op_code(op, self.prev_token.line)
     }
 
     fn emit_bytes(&mut self, op_1: Op, op_2: Op) {
@@ -176,7 +167,7 @@ impl<'a> Parser<'a> {
     fn parse_precedence(&mut self, precedence: usize) {
         self.advance();
 
-        match self.prev_token.as_ref().unwrap().token {
+        match self.prev_token.token {
             Token::LeftParen => self.grouping(),
             Token::Minus => self.unary(),
             Token::Number => self.number(),
@@ -189,7 +180,7 @@ impl<'a> Parser<'a> {
 
         while precedence <= (self.current_precedence() as usize) {
             self.advance();
-            match self.prev_token.as_ref().unwrap().token {
+            match self.prev_token.token {
                 Token::Minus => self.binary(),
                 Token::Plus => self.binary(),
                 Token::Slash => self.binary(),
@@ -206,10 +197,7 @@ impl<'a> Parser<'a> {
     }
 
     fn current_precedence(&mut self) -> Precedence {
-        match self.scanner.peek() {
-            Some(token_data) => token_data.token.get_precedence(),
-            None => Precedence::None,
-        }
+        self.scanner.peek().token.get_precedence()
     }
 }
 
@@ -240,7 +228,7 @@ impl Token {
             Token::Star => Precedence::Factor,
             Token::Minus => Precedence::Term,
             Token::Plus => Precedence::Term,
-            Token::BangEqual =>Precedence::Equality,
+            Token::BangEqual => Precedence::Equality,
             Token::EqualEqual => Precedence::Equality,
             Token::Greater => Precedence::Comparison,
             Token::GreaterEqual => Precedence::Comparison,
@@ -254,12 +242,14 @@ impl Token {
 fn grouping(parser: &mut Parser) {
     parser.expression();
     parser.consume(
-        Some(Token::RightParen),
+        Token::RightParen,
         "Expect ')' after expression.".to_string(),
     );
 }
 
-fn error_at(token_data: Option<&TokenData>, message: String) {
-    let td = token_data.unwrap();
-    eprintln!("[line {}] Error at {}: {message}", td.line, td.start);
+fn error_at(token_data: &TokenData, message: String) {
+    eprintln!(
+        "[line {}] Error at {}: {message}",
+        token_data.line, token_data.start
+    );
 }

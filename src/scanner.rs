@@ -1,10 +1,10 @@
+use rstest::*;
 macro_rules! identifier_chars {
     () => {'_' | 'a'..='z' | 'A'..='Z'};
 }
 
 pub struct Scanner<'a> {
     source: &'a str,
-    chars: ::std::iter::Peekable<::std::str::CharIndices<'a>>,
     idx: usize,
     line: u32,
 }
@@ -12,23 +12,22 @@ impl<'a> Scanner<'a> {
     pub fn new(source: &str) -> Scanner {
         Scanner {
             source,
-            chars: source.char_indices().peekable(),
             idx: 0,
             line: 1,
         }
     }
 
-    fn make_token_data(&self, token: Token) -> Option<TokenData<'a>> {
-        self.make_token_data_with_start(token, self.idx)
+    fn make_token_data(&self, token: Token) -> TokenData<'a> {
+        self.make_token_data_with_start(token, self.idx - 1)
     }
 
-    fn make_token_data_with_start(&self, token: Token, start: usize) -> Option<TokenData<'a>> {
-        Some(TokenData {
+    fn make_token_data_with_start(&self, token: Token, start: usize) -> TokenData<'a> {
+        TokenData {
             token,
             line: self.line,
-            source: &self.source[start..self.source.ceil_char_boundary(self.idx + 1)],
+            source: &self.source[start..self.source.ceil_char_boundary(self.idx)],
             start,
-        })
+        }
     }
 
     fn match_char(&mut self, c: char) -> bool {
@@ -39,9 +38,9 @@ impl<'a> Scanner<'a> {
     where
         F: Fn(char) -> bool,
     {
-        match self.chars.peek() {
-            Some((_, c)) => {
-                if condition(*c) {
+        match self.peek_char() {
+            Some(c) => {
+                if condition(c) {
                     self.next_char();
                     true
                 } else {
@@ -52,14 +51,15 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn string(&mut self) -> Option<TokenData<'a>> {
-        let start = self.idx;
+    fn string(&mut self) -> TokenData<'a> {
+        let start = self.idx - 1;
         loop {
             match self.next_char() {
-                Some(c) => {if c =='"' {
+                Some(c) => {
+                    if c == '"' {
                         return self.make_token_data_with_start(Token::String, start);
                     }
-                },
+                }
                 None => {
                     return self.make_token_data_with_start(
                         Token::Error(ErrorToken::UnterminatedString),
@@ -70,15 +70,15 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn number(&mut self) -> Option<TokenData<'a>> {
-        let start = self.idx;
+    fn number(&mut self) -> TokenData<'a> {
+        let start = self.idx - 1;
         loop {
-            match self.chars.peek() {
-                Some((_, '.')) => {
+            match self.peek_char() {
+                Some('.') => {
                     self.next_char();
                     loop {
-                        match self.chars.peek() {
-                            Some((_, '0'..='9')) => {
+                        match self.peek_char() {
+                            Some('0'..='9') => {
                                 self.next_char();
                             }
                             _ => {
@@ -87,7 +87,7 @@ impl<'a> Scanner<'a> {
                         }
                     }
                 }
-                Some((_, '0'..='9')) => {
+                Some('0'..='9') => {
                     self.next_char();
                 }
                 _ => {
@@ -97,16 +97,16 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn identifier(&mut self) -> Option<TokenData<'a>> {
-        let start = self.idx;
+    fn identifier(&mut self) -> TokenData<'a> {
+        let start = self.idx - 1;
         let mut len = 1;
         let token = match loop {
-            let c = self.chars.peek();
-            if let Some((_, identifier_chars!())) = c {
+            let c = self.peek_char();
+            if let Some(identifier_chars!()) = c {
                 self.next_char();
                 len += 1;
             } else {
-                break &self.source[start..start + len];
+                break &self.source[start..start + len]
             }
         } {
             "and" => Token::And,
@@ -132,19 +132,41 @@ impl<'a> Scanner<'a> {
     }
 
     fn next_char(&mut self) -> Option<char> {
-        self.chars.next().map(|(i, ch)| {
-            self.idx = i;
-            ch
-        })
+        if self.idx >= self.source.len() {
+            return None;
+        }
+        let result = self.source[self.idx..self.source.ceil_char_boundary(self.idx + 1)]
+            .chars()
+            .next();
+        self.idx = self.source.ceil_char_boundary(self.idx + 1);
+        result
     }
-}
 
-impl<'a> Iterator for Scanner<'a> {
-    type Item = TokenData<'a>;
+    fn peek_char(&self) -> Option<char> {
+        if self.idx >= self.source.len() {
+            return None;
+        }
+        self.source[self.idx..self.source.ceil_char_boundary(self.idx + 1)]
+            .chars()
+            .next()
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_char()
-            .and_then(|ch| match ch {
+    pub fn next(&mut self) -> TokenData<'a> {
+        let next_char = self.next_char();
+        self.char_to_token_data(next_char)
+    }
+
+    pub fn peek(&mut self) -> TokenData<'a> {
+        let saved_idx = self.idx;
+        let next_char = self.next_char();
+        let result  = self.char_to_token_data(next_char);
+        self.idx = saved_idx;
+        result
+    }
+
+    fn char_to_token_data(&mut self, char: Option<char>) -> TokenData<'a> {
+        match char {
+            Some(ch) => match ch {
                 '(' => self.make_token_data(Token::LeftParen),
                 ')' => self.make_token_data(Token::RightParen),
                 '{' => self.make_token_data(Token::LeftBrace),
@@ -203,8 +225,42 @@ impl<'a> Iterator for Scanner<'a> {
                 '0'..='9' => self.number(),
                 identifier_chars!() => self.identifier(),
                 _ => self.make_token_data(Token::Error(ErrorToken::InvalidToken(ch))),
-            })
+            },
+            None => TokenData {
+                token:Token::Eof,
+                line: self.line,
+                source:"",
+                start: self.idx
+            },
+        }
     }
+}
+
+#[rstest]
+#[case("1", vec![TokenData {token: Token::Number, source: "1", start: 0, line: 1}])]
+#[case("1 2 \n", vec![
+    TokenData {token: Token::Number, source: "1", start: 0, line: 1},
+    TokenData {token: Token::Number, source: "2", start: 2, line: 1},
+    TokenData {token: Token::Eof, source: "", start: 5, line: 2},
+])]
+#[case("true", vec![TokenData {token: Token::True, source: "true", start: 0, line: 1}])]
+#[case("1 + 2\n", vec![
+    TokenData {token: Token::Number, source: "1", start: 0, line: 1},
+    TokenData {token: Token::Plus, source: "+", start: 2, line: 1},
+    TokenData {token: Token::Number, source: "2", start: 4, line: 1},
+    TokenData {token: Token::Eof, source: "", start: 6, line: 2},
+])]
+#[case("  \"two\"  \"strings\" \n", vec![
+    TokenData {token: Token::String, source: "\"two\"", start: 2, line: 1},
+    TokenData {token: Token::String, source: "\"strings\"", start: 9, line: 1},
+    TokenData {token: Token::Eof, source: "", start: 20, line: 2}])]
+fn scanner(#[case] source: &str, #[case] expected_tokens: Vec<TokenData>) {
+    let mut scanner = Scanner::new(source);
+
+    for expected_token in expected_tokens {
+        assert_eq!(scanner.next(), expected_token);
+    }
+    assert_eq!(scanner.next().token, Token::Eof);
 }
 
 #[derive(Debug, Clone, PartialEq, Copy)]
@@ -253,6 +309,10 @@ pub enum Token {
     While,
     // Error
     Error(ErrorToken),
+    // Start of file
+    Sof,
+    // End of file
+    Eof,
 }
 impl Token {
     pub fn is_error(&self) -> bool {
@@ -274,7 +334,7 @@ impl ErrorToken {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct TokenData<'a> {
     pub token: Token,
     pub line: u32,

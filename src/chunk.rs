@@ -1,4 +1,5 @@
 use crate::value::Value;
+#[derive(Debug)]
 pub enum Op {
     Return,
     Constant { value: Value },

@@ -18,7 +18,7 @@ macro_rules! bin_op {
             $self.pop();
             $self.pop();
 
-            $self.stack.push(Value::Number(a $op b));
+            $self.stack.push(Value::Number(b $op a));
         } else {
             $self.runtime_error("Operands must be numbers.");
         }
