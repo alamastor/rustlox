@@ -1,4 +1,4 @@
-use crate::chunk::{Chunk, OpCode};
+use crate::chunk::{Chunk, Op};
 use crate::compiler;
 use crate::value::Value;
 use std::io::Write;
@@ -15,6 +15,8 @@ pub fn interpret<O: Write, E: Write>(
 macro_rules! bin_op {
     ($self:ident, $op:tt) => {
         if let Value::Number(a) = $self.peek(0) && let Value::Number(b) = $self.peek(1) {
+            let a = *a;
+            let b = *b;
             $self.pop();
             $self.pop();
 
@@ -28,6 +30,8 @@ macro_rules! bin_op {
 macro_rules! bool_bin_op {
     ($self:ident, $op:tt) => {
         if let Value::Number(a) = $self.peek(0) && let Value::Number(b) = $self.peek(1) {
+            let a = *a;
+            let b = *b;
             $self.pop();
             $self.pop();
 
@@ -57,7 +61,7 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
     }
     fn run(&mut self) -> Result<(), InterpretError> {
         loop {
-            let op_code = self.chunk.decode(self.ip);
+            let (op, op_size) = self.chunk.decode(self.ip);
             if cfg!(feature = "trace") {
                 self.chunk.disassemble_code(self.ip);
                 print!("          ");
@@ -66,17 +70,17 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 }
                 println!();
             }
-            match op_code {
-                OpCode::Constant { value, idx: _ } => self.stack.push(value),
-                OpCode::ConstantLong { value, idx: _ } => self.stack.push(value),
-                OpCode::Return => {
+            match op {
+                Op::Constant { value } => self.stack.push(value),
+                Op::Return => {
                     let return_val = self.pop();
                     writeln!(self.out_stream, "{return_val}").unwrap();
                     return Result::Ok(());
                 }
-                OpCode::Negate => {
+                Op::Negate => {
                     match self.peek(0) {
                         Value::Number(val) => {
+                            let val = *val;
                             self.pop();
                             self.stack.push(Value::Number(-val));
                         }
@@ -86,44 +90,44 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                         }
                     };
                 }
-                OpCode::Nil => {
+                Op::Nil => {
                     self.stack.push(Value::Nil);
                 }
-                OpCode::True => {
+                Op::True => {
                     self.stack.push(Value::Bool(true));
                 }
-                OpCode::False => {
+                Op::False => {
                     self.stack.push(Value::Bool(false));
                 }
-                OpCode::Add => {
+                Op::Add => {
                     bin_op!(self, +);
                 }
-                OpCode::Subtract => {
+                Op::Subtract => {
                     bin_op!(self, -);
                 }
-                OpCode::Multiply => {
+                Op::Multiply => {
                     bin_op!(self, *);
                 }
-                OpCode::Divide => {
+                Op::Divide => {
                     bin_op!(self, /);
                 }
-                OpCode::Not => {
+                Op::Not => {
                     let bool = Value::Bool(is_falsey(self.pop()));
                     self.stack.push(bool);
                 }
-                OpCode::Equal => {
+                Op::Equal => {
                     let a = self.pop();
                     let b = self.pop();
                     self.stack.push(Value::Bool(values_equal(a, b)))
                 }
-                OpCode::Greater => {
+                Op::Greater => {
                     bool_bin_op!(self, >);
                 }
-                OpCode::Less => {
+                Op::Less => {
                     bool_bin_op!(self, <);
                 }
             }
-            self.ip += op_code.code_size()
+            self.ip += op_size;
         }
     }
 
@@ -134,8 +138,8 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
         }
     }
 
-    fn peek(&self, distance: usize) -> Value {
-        self.stack[self.stack.len() - 1 - distance]
+    fn peek(&self, distance: usize) -> &Value {
+        &self.stack[self.stack.len() - 1 - distance]
     }
 
     fn runtime_error(&mut self, message: &str) {
@@ -157,13 +161,13 @@ fn is_falsey(value: Value) -> bool {
         Value::Nil => true,
         Value::Bool(x) => !x,
         _ => false,
-    }
-}
+    } }
 
 fn values_equal(a: Value, b: Value) -> bool {
     match a {
         Value::Bool(_) => a == b,
         Value::Nil => true,
         Value::Number(_) => a == b,
+        Value::Obj(_) => a == b
     }
 }

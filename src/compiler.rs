@@ -1,4 +1,7 @@
+use std::rc::Rc;
+
 use crate::chunk::{Chunk, Op};
+use crate::object::Object;
 use crate::scanner::{Scanner, Token, TokenData};
 use crate::value::Value;
 pub fn compile(source: &str) -> Result<Chunk, ()> {
@@ -116,7 +119,6 @@ impl<'a> Parser<'a> {
     }
 
     fn number(&mut self) {
-        println!("{:?}", self.prev_token);
         let value = self.prev_token.source.parse::<f64>().unwrap();
         self.emit_constant(Value::Number(value));
     }
@@ -136,6 +138,12 @@ impl<'a> Parser<'a> {
                 panic!("Expected a literal token; got {:?}", unexpected);
             }
         }
+    }
+
+    fn string(&mut self) {
+        self.emit_constant(Value::Obj(Rc::new(Object::String {
+            chars: self.prev_token.source.to_string(),
+        })))
     }
 
     fn consume(&mut self, expected_token: Token, message: String) {

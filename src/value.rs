@@ -1,10 +1,12 @@
-use std::fmt;
+use std::{fmt, rc::Rc};
+use crate::object::Object;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Bool(bool),
     Nil,
     Number(f64),
+    Obj(Rc<Object>),
 }
 
 impl fmt::Display for Value {
@@ -16,6 +18,7 @@ impl fmt::Display for Value {
                 Value::Bool(x) => format!("{x}"),
                 Value::Nil => "nil".to_string(),
                 Value::Number(x) => format!("{x}"),
+                Value::Obj(object) => (**object).to_string()
             }
         )
     }

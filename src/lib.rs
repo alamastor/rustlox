@@ -5,9 +5,9 @@
 #![allow(dead_code)]
 mod chunk;
 mod compiler;
-mod debug;
 mod scanner;
 mod value;
+mod object;
 pub mod vm;
 
 use std::{

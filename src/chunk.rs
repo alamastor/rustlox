@@ -1,4 +1,10 @@
+use std::convert::TryFrom;
+use std::convert::TryInto;
+
 use crate::value::Value;
+
+mod debug;
+
 #[derive(Debug)]
 pub enum Op {
     Return,
@@ -16,49 +22,12 @@ pub enum Op {
     Greater,
     Less,
 }
-impl Op {
-    pub fn to_opcode(&self, chunk: &mut Chunk) -> OpCode {
-        match self {
-            Op::Return => OpCode::Return,
-            Op::Constant { value } => {
-                chunk.constants.push(*value);
-                const U8_SIZE: usize = ::std::mem::size_of::<u8>() * 8;
-                const U8_SIZE_PLUS_1: usize = ::std::mem::size_of::<u8>() * 8 + 1;
-                const U16_SIZE: usize = ::std::mem::size_of::<u16>() * 8;
-                let const_idx = chunk.constants.len() - 1;
-                match const_idx {
-                    0..=U8_SIZE => OpCode::Constant {
-                        value: *value,
-                        idx: (const_idx) as u8,
-                    },
-                    U8_SIZE_PLUS_1..=U16_SIZE => OpCode::ConstantLong {
-                        value: *value,
-                        idx: (const_idx) as u16,
-                    },
-                    _ => panic!("Tried to store constant index {} as a u16", const_idx),
-                }
-            }
-            Op::Negate => OpCode::Negate,
-            Op::Add => OpCode::Add,
-            Op::Subtract => OpCode::Subtract,
-            Op::Multiply => OpCode::Multiply,
-            Op::Divide => OpCode::Divide,
-            Op::Nil => OpCode::Nil,
-            Op::True => OpCode::True,
-            Op::False => OpCode::False,
-            Op::Not => OpCode::Not,
-            Op::Equal => OpCode::Equal,
-            Op::Greater => OpCode::Greater,
-            Op::Less => OpCode::Less,
-        }
-    }
-}
 
 #[derive(Debug)]
-pub enum OpCode {
+enum OpCode {
     Return,
-    Constant { value: Value, idx: u8 },
-    ConstantLong { value: Value, idx: u16 },
+    Constant,
+    ConstantLong,
     Nil,
     True,
     False,
@@ -72,33 +41,38 @@ pub enum OpCode {
     Greater,
     Less,
 }
+
 impl OpCode {
-    // TODO: Can this be a macro?
-    fn code(&self) -> u8 {
+    fn code_size(&self) -> usize {
         match self {
-            OpCode::Return => 0,
-            OpCode::Constant { value: _, idx: _ } => 1,
-            OpCode::ConstantLong { value: _, idx: _ } => 2,
-            OpCode::Negate => 3,
-            OpCode::Add => 4,
-            OpCode::Subtract => 5,
-            OpCode::Multiply => 6,
-            OpCode::Divide => 7,
-            OpCode::Nil => 8,
-            OpCode::True => 9,
-            OpCode::False => 10,
-            OpCode::Not => 11,
-            OpCode::Equal => 12,
-            OpCode::Greater => 13,
-            OpCode::Less => 14,
+            OpCode::Constant => 2,
+            OpCode::ConstantLong => 3,
+            _ => 1,
         }
     }
+}
 
-    pub fn code_size(&self) -> usize {
-        match self {
-            OpCode::Constant { value: _, idx: _ } => 2,
-            OpCode::ConstantLong { value: _, idx: _ } => 3,
-            _ => 1,
+impl TryFrom<u8> for OpCode {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(OpCode::Return),
+            1 => Ok(OpCode::Constant),
+            2 => Ok(OpCode::ConstantLong),
+            3 => Ok(OpCode::Negate),
+            4 => Ok(OpCode::Add),
+            5 => Ok(OpCode::Subtract),
+            6 => Ok(OpCode::Multiply),
+            7 => Ok(OpCode::Divide),
+            8 => Ok(OpCode::Nil),
+            9 => Ok(OpCode::True),
+            10 => Ok(OpCode::False),
+            11 => Ok(OpCode::Not),
+            12 => Ok(OpCode::Equal),
+            13 => Ok(OpCode::Greater),
+            14 => Ok(OpCode::Less),
+            _ => Err(()),
         }
     }
 }
@@ -119,15 +93,39 @@ impl Chunk {
     }
 
     pub fn push_op_code(&mut self, op: Op, line_no: u32) {
-        let op_code = op.to_opcode(self);
-        self.code.push(op_code.code());
-        match op_code {
-            OpCode::Constant { value: _, idx } => self.code.push(idx),
-            OpCode::ConstantLong { value: _, idx } => {
-                self.code.push((idx & 0xFF) as u8);
-                self.code.push((idx >> 8) as u8);
+        match op {
+            Op::Return => self.code.push(0),
+            Op::Constant { value } => {
+                self.constants.push(value);
+                const U8_SIZE: usize = ::std::mem::size_of::<u8>() * 8;
+                const U8_SIZE_PLUS_1: usize = ::std::mem::size_of::<u8>() * 8 + 1;
+                const U16_SIZE: usize = ::std::mem::size_of::<u16>() * 8;
+                let const_idx = self.constants.len() - 1;
+                match const_idx {
+                    0..=U8_SIZE => {
+                        self.code.push(1);
+                        self.code.push(const_idx as u8);
+                    }
+                    U8_SIZE_PLUS_1..=U16_SIZE => {
+                        self.code.push(2);
+                        self.code.push(((const_idx as u16) & 0xFF) as u8);
+                        self.code.push(((const_idx as u16) >> 8) as u8);
+                    }
+                    _ => panic!("Tried to store constant index {} as a u16", const_idx),
+                }
             }
-            _ => {}
+            Op::Negate => self.code.push(3),
+            Op::Add => self.code.push(4),
+            Op::Subtract => self.code.push(5),
+            Op::Multiply => self.code.push(6),
+            Op::Divide => self.code.push(7),
+            Op::Nil => self.code.push(8),
+            Op::True => self.code.push(9),
+            Op::False => self.code.push(10),
+            Op::Not => self.code.push(11),
+            Op::Equal => self.code.push(12),
+            Op::Greater => self.code.push(13),
+            Op::Less => self.code.push(14),
         }
         self.push_line_no(line_no);
     }
@@ -146,43 +144,40 @@ impl Chunk {
         }
     }
 
-    pub fn decode(&self, idx: usize) -> OpCode {
-        let code = self.code[idx];
-        match code {
-            0 => OpCode::Return {},
-            1 => {
-                let const_idx = self.code[idx + 1];
-                let value = self.constants[const_idx as usize];
-                OpCode::Constant {
-                    value,
-                    idx: const_idx,
-                }
+    pub fn decode(&self, idx: usize) -> (Op, usize) {
+        let code_val = self.code[idx];
+        let op_code: OpCode = match code_val.try_into() {
+            Ok(op_code) => op_code,
+            Err(()) => {
+                panic!("Invalid op code {} found at index {}!", code_val, idx)
             }
-            2 => {
+        };
+        match op_code {
+            OpCode::Return => (Op::Return {}, 1),
+            OpCode::Constant => {
+                let const_idx = self.code[idx + 1];
+                let value = self.constants[const_idx as usize].clone();
+                (Op::Constant { value }, 2)
+            }
+            OpCode::ConstantLong => {
                 let lo = (self.code[idx + 1]) as u16;
                 let hi = (self.code[idx + 1]) as u16;
                 let const_idx = (hi << 8) + lo;
-                let value = self.constants[const_idx as usize];
-                OpCode::ConstantLong {
-                    value,
-                    idx: const_idx,
-                }
+                let value = self.constants[const_idx as usize].clone();
+                (Op::Constant { value }, 3)
             }
-            3 => OpCode::Negate,
-            4 => OpCode::Add,
-            5 => OpCode::Subtract,
-            6 => OpCode::Multiply,
-            7 => OpCode::Divide,
-            8 => OpCode::Nil,
-            9 => OpCode::True,
-            10 => OpCode::False,
-            11 => OpCode::Not,
-            12 => OpCode::Equal,
-            13 => OpCode::Greater,
-            14 => OpCode::Less,
-            _ => {
-                panic!("Invalid op code {} found at index {}!", code, idx)
-            }
+            OpCode::Negate => (Op::Negate, 1),
+            OpCode::Add => (Op::Add, 1),
+            OpCode::Subtract => (Op::Subtract, 1),
+            OpCode::Multiply => (Op::Multiply, 1),
+            OpCode::Divide => (Op::Divide, 1),
+            OpCode::Nil => (Op::Nil, 1),
+            OpCode::True => (Op::True, 1),
+            OpCode::False => (Op::False, 1),
+            OpCode::Not => (Op::Not, 1),
+            OpCode::Equal => (Op::Equal, 1),
+            OpCode::Greater => (Op::Greater, 1),
+            OpCode::Less => (Op::Less, 1),
         }
     }
 
@@ -205,7 +200,7 @@ impl Chunk {
         let mut i = 0;
         let mut result = 0;
         while i < code_idx {
-            i += self.decode(i).code_size();
+            i += self.decode(i).1;
             result += 1
         }
         result
