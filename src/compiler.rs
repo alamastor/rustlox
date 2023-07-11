@@ -183,6 +183,7 @@ impl<'a> Parser<'a> {
             Token::True => self.literal(),
             Token::Nil => self.literal(),
             Token::Bang => self.unary(),
+            Token::String => self.string(),
             _ => self.error("Expect expression".to_string()),
         }
 
