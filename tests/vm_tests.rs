@@ -13,7 +13,6 @@ const RETURN_TRUE: &str = "true\n";
 #[case::equal_true("1 == 1", RETURN_TRUE, "")]
 #[case::string_eq("\"asdf\n\" == \"asdf\n\"", RETURN_TRUE, "")]
 #[case::string_neq("\"xyz\" == \"yzx\"", RETURN_FALSE, "")]
-#[should_panic]
 #[case::string_concat("\"a\" + \"b\" == \"ab\"", RETURN_TRUE, "")]
 fn interpreter(#[case] input: &str, #[case] expected_output: &str, #[case] expected_error: &str) {
     assert_interpreter_output(input, expected_output, expected_error) 

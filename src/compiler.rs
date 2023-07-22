@@ -142,7 +142,7 @@ impl<'a> Parser<'a> {
 
     fn string(&mut self) {
         self.emit_constant(Value::Obj(Rc::new(Object::String {
-            chars: self.prev_token.source.to_string(),
+            chars: self.prev_token.source[1..self.prev_token.source.len() - 1].to_string(),
         })))
     }
 

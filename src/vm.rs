@@ -1,7 +1,9 @@
 use crate::chunk::{Chunk, Op};
 use crate::compiler;
+use crate::object::Object;
 use crate::value::Value;
 use std::io::Write;
+use std::rc::Rc;
 
 pub fn interpret<O: Write, E: Write>(
     source: &str,
@@ -100,7 +102,15 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                     self.stack.push(Value::Bool(false));
                 }
                 Op::Add => {
-                    bin_op!(self, +);
+                    if let Value::Obj(x) = self.peek(0) &&
+                       let Object::String { chars: a } = &**x &&
+                       let Value::Obj(y) = self.peek(1)
+                    {
+                        let Object::String { chars: b } = &**y;
+                        self.push(Value::Obj(Rc::new(Object::String {chars: b.to_owned() + a})));
+                    } else {
+                        bin_op!(self, +);
+                    }
                 }
                 Op::Subtract => {
                     bin_op!(self, -);
@@ -129,6 +139,13 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
             }
             self.ip += op_size;
         }
+    }
+
+    fn push(&mut self, value: Value) {
+        if cfg!(feature = "trace") {
+            println!("Pushing {value}");
+        }
+        self.stack.push(value);
     }
 
     fn pop(&mut self) -> Value {
@@ -161,13 +178,14 @@ fn is_falsey(value: Value) -> bool {
         Value::Nil => true,
         Value::Bool(x) => !x,
         _ => false,
-    } }
+    }
+}
 
 fn values_equal(a: Value, b: Value) -> bool {
     match a {
         Value::Bool(_) => a == b,
         Value::Nil => true,
         Value::Number(_) => a == b,
-        Value::Obj(_) => a == b
+        Value::Obj(_) => a == b,
     }
 }
