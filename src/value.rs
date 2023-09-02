@@ -1,5 +1,5 @@
-use std::{fmt, rc::Rc};
 use crate::object::Object;
+use std::{fmt, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -18,7 +18,7 @@ impl fmt::Display for Value {
                 Value::Bool(x) => format!("{x}"),
                 Value::Nil => "nil".to_string(),
                 Value::Number(x) => format!("{x}"),
-                Value::Obj(object) => (**object).to_string()
+                Value::Obj(object) => (**object).to_string(),
             }
         )
     }

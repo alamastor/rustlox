@@ -1,9 +1,8 @@
-use std::rc::Rc;
 
 use crate::chunk::{Chunk, Op};
-use crate::object::Object;
 use crate::scanner::{Scanner, Token, TokenData};
 use crate::value::Value;
+
 pub fn compile(source: &str) -> Result<Chunk, ()> {
     let mut parser = Parser::new(source);
     if cfg!(feature = "trace") {
@@ -141,9 +140,9 @@ impl<'a> Parser<'a> {
     }
 
     fn string(&mut self) {
-        self.emit_constant(Value::Obj(Rc::new(Object::String {
-            chars: self.prev_token.source[1..self.prev_token.source.len() - 1].to_string(),
-        })))
+        let string_data = self.prev_token.source[1..self.prev_token.source.len() - 1].to_string();
+        let new_string = self.chunk.objects.new_string(string_data);
+        self.emit_constant(Value::Obj(new_string));
     }
 
     fn consume(&mut self, expected_token: Token, message: String) {
@@ -246,14 +245,6 @@ impl Token {
             _ => Precedence::None,
         }
     }
-}
-
-fn grouping(parser: &mut Parser) {
-    parser.expression();
-    parser.consume(
-        Token::RightParen,
-        "Expect ')' after expression.".to_string(),
-    );
 }
 
 fn error_at(token_data: &TokenData, message: String) {

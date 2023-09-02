@@ -1,9 +1,9 @@
 use crate::chunk::{Chunk, Op};
 use crate::compiler;
-use crate::object::Object;
+use crate::object::{Object, Objects};
 use crate::value::Value;
 use std::io::Write;
-use std::rc::Rc;
+use std::slice::Iter;
 
 pub fn interpret<O: Write, E: Write>(
     source: &str,
@@ -22,7 +22,7 @@ macro_rules! bin_op {
             $self.pop();
             $self.pop();
 
-            $self.stack.push(Value::Number(b $op a));
+            $self.push(Value::Number(b $op a));
         } else {
             $self.runtime_error("Operands must be numbers.");
         }
@@ -37,7 +37,7 @@ macro_rules! bool_bin_op {
             $self.pop();
             $self.pop();
 
-            $self.stack.push(Value::Bool(a $op b));
+            $self.push(Value::Bool(a $op b));
         } else {
             $self.runtime_error("Operands must be numbers.");
         }
@@ -48,6 +48,7 @@ pub struct VM<'a, O: Write, E: Write> {
     chunk: &'a Chunk,
     ip: usize,
     stack: Vec<Value>,
+    objects: Objects,
     out_stream: &'a mut O,
     err_stream: &'a mut E,
 }
@@ -57,23 +58,25 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
             chunk,
             ip: 0,
             stack: vec![],
+            objects: Objects::new(),
             out_stream,
             err_stream,
         }
     }
+
     fn run(&mut self) -> Result<(), InterpretError> {
         loop {
             let (op, op_size) = self.chunk.decode(self.ip);
             if cfg!(feature = "trace") {
                 self.chunk.disassemble_code(self.ip);
                 print!("          ");
-                for val in self.stack.iter() {
+                for val in self.iter() {
                     print!("[{val}]");
                 }
                 println!();
             }
             match op {
-                Op::Constant { value } => self.stack.push(value),
+                Op::Constant { value } => self.push(value),
                 Op::Return => {
                     let return_val = self.pop();
                     writeln!(self.out_stream, "{return_val}").unwrap();
@@ -93,13 +96,13 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                     };
                 }
                 Op::Nil => {
-                    self.stack.push(Value::Nil);
+                    self.push(Value::Nil);
                 }
                 Op::True => {
-                    self.stack.push(Value::Bool(true));
+                    self.push(Value::Bool(true));
                 }
                 Op::False => {
-                    self.stack.push(Value::Bool(false));
+                    self.push(Value::Bool(false));
                 }
                 Op::Add => {
                     if let Value::Obj(x) = self.peek(0) &&
@@ -107,7 +110,8 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                        let Value::Obj(y) = self.peek(1)
                     {
                         let Object::String { chars: b } = &**y;
-                        self.push(Value::Obj(Rc::new(Object::String {chars: b.to_owned() + a})));
+                        let new_string = self.objects.new_string(b.to_owned() + a);
+                        self.stack.push(Value::Obj(new_string));
                     } else {
                         bin_op!(self, +);
                     }
@@ -128,7 +132,7 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 Op::Equal => {
                     let a = self.pop();
                     let b = self.pop();
-                    self.stack.push(Value::Bool(values_equal(a, b)))
+                    self.push(Value::Bool(values_equal(a, b)))
                 }
                 Op::Greater => {
                     bool_bin_op!(self, >);
@@ -157,6 +161,10 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
 
     fn peek(&self, distance: usize) -> &Value {
         &self.stack[self.stack.len() - 1 - distance]
+    }
+
+    fn iter(&self) -> Iter<'_, Value> {
+        self.stack.iter()
     }
 
     fn runtime_error(&mut self, message: &str) {

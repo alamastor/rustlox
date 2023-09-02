@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
+use crate::object::Objects;
 use crate::value::Value;
 
 mod debug;
@@ -79,6 +80,7 @@ impl TryFrom<u8> for OpCode {
 
 pub struct Chunk {
     pub code: Vec<u8>,
+    pub objects: Objects,
     pub constants: Vec<Value>,
     pub line_nos: Vec<(u32, u32)>,
 }
@@ -87,6 +89,7 @@ impl Chunk {
     pub fn new() -> Chunk {
         Chunk {
             code: vec![],
+            objects: Objects::new(),
             constants: vec![],
             line_nos: vec![],
         }

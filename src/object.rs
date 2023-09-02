@@ -1,4 +1,19 @@
-use std::fmt;
+use std::{fmt, rc::Rc};
+
+pub struct Objects {
+    objects: Vec<Rc<Object>>,
+}
+
+impl Objects {
+    pub fn new() -> Self {
+        Objects { objects: vec![] }
+    }
+
+    pub fn new_string(&mut self, chars: String) -> Rc<Object> {
+        self.objects.push(Rc::new(Object::String { chars }));
+        self.objects.last().unwrap().clone()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
