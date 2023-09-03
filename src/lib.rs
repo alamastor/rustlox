@@ -3,16 +3,17 @@
 #![feature(trace_macros)]
 #![feature(is_some_and)]
 #![allow(dead_code)]
+#![feature(hash_set_entry)]
 mod chunk;
 mod compiler;
+mod object;
 mod scanner;
 mod value;
-mod object;
 pub mod vm;
 
 use std::{
     fs,
-    io::{self, Write, stdout, stderr},
+    io::{self, stderr, stdout, Write},
 };
 
 pub fn repl() -> Result<(), LoxError> {
@@ -28,9 +29,10 @@ pub fn repl() -> Result<(), LoxError> {
 pub fn run_file(path: &str) -> Result<(), LoxError> {
     vm::interpret(
         fs::read_to_string(path)?.as_str(),
-&mut stdout(), &mut stderr()
-    ).map_err(|e| e.into())
- 
+        &mut stdout(),
+        &mut stderr(),
+    )
+    .map_err(|e| e.into())
 }
 
 pub enum LoxError {

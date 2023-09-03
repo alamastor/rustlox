@@ -106,11 +106,11 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 }
                 Op::Add => {
                     if let Value::Obj(x) = self.peek(0) &&
-                       let Object::String { chars: a } = &**x &&
+                       let Object::String { chars: a } = x &&
                        let Value::Obj(y) = self.peek(1)
                     {
-                        let Object::String { chars: b } = &**y;
-                        let new_string = self.objects.new_string(b.to_owned() + a);
+                        let Object::String { chars: b } = y;
+                        let new_string = self.objects.new_string((**b).to_owned() + &**a);
                         self.stack.push(Value::Obj(new_string));
                     } else {
                         bin_op!(self, +);
