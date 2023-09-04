@@ -87,6 +87,10 @@ impl<'a> Parser<'a> {
 
     fn declaration(&mut self) {
         self.statement();
+
+        if self.panic_mode {
+            self.synchronize();
+        }
     }
 
     fn statement(&mut self) {
@@ -101,6 +105,44 @@ impl<'a> Parser<'a> {
         self.expression();
         self.consume(Token::Semicolon, "Expect ';' after value.".to_string());
         self.emit_byte(Op::Print);
+    }
+
+    fn synchronize(&mut self) {
+        self.panic_mode = false;
+
+        while self.scanner.peek().token != Token::Eof {
+            if self.scanner.peek().token == Token::Semicolon {
+                return;
+            }
+            match self.prev_token.token {
+                Token::Class => {
+                    return;
+                }
+                Token::Fun => {
+                    return;
+                }
+                Token::Var => {
+                    return;
+                }
+                Token::For => {
+                    return;
+                }
+                Token::If => {
+                    return;
+                }
+                Token::While => {
+                    return;
+                }
+                Token::Print => {
+                    return;
+                }
+                Token::Return => {
+                    return;
+                }
+                _ => {}
+            }
+            self.advance()
+        }
     }
 
     fn grouping(&mut self) {
