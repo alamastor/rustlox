@@ -78,8 +78,11 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
             match op {
                 Op::Constant { value } => self.push(value),
                 Op::Return => {
-                    let return_val = self.pop();
-                    writeln!(self.out_stream, "{return_val}").unwrap();
+                    return Result::Ok(());
+                }
+                Op::Print => {
+                    let val = self.pop();
+                    writeln!(self.out_stream, "{val}").unwrap();
                     return Result::Ok(());
                 }
                 Op::Negate => {

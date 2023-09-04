@@ -1,4 +1,3 @@
-
 use crate::chunk::{Chunk, Op};
 use crate::scanner::{Scanner, Token, TokenData};
 use crate::value::Value;
@@ -9,7 +8,9 @@ pub fn compile(source: &str) -> Result<Chunk, ()> {
         parser.chunk.disassemble("chunk");
     }
 
-    parser.expression();
+    while !parser.match_(Token::Eof) {
+        parser.declaration();
+    }
     parser.consume(Token::Eof, "Expected EOF".to_string());
     parser.end_compiler();
     if parser.had_error {
@@ -76,6 +77,22 @@ impl<'a> Parser<'a> {
 
     fn expression(&mut self) {
         self.parse_precedence(Precedence::Assignment as usize);
+    }
+
+    fn declaration(&mut self) {
+        self.statement();
+    }
+
+    fn statement(&mut self) {
+        if self.match_(Token::Print) {
+            self.print_statement();
+        }
+    }
+
+    fn print_statement(&mut self) {
+        self.expression();
+        self.consume(Token::Semicolon, "Expect ';' after value.".to_string());
+        self.emit_byte(Op::Print);
     }
 
     fn grouping(&mut self) {
@@ -150,6 +167,15 @@ impl<'a> Parser<'a> {
             self.advance();
         } else {
             self.error_at_current(message)
+        }
+    }
+
+    fn match_(&mut self, token: Token) -> bool {
+        if self.scanner.peek().token == token {
+            self.advance();
+            true
+        } else {
+            false
         }
     }
 

@@ -22,6 +22,7 @@ pub enum Op {
     Equal,
     Greater,
     Less,
+    Print,
 }
 
 #[derive(Debug)]
@@ -41,6 +42,7 @@ enum OpCode {
     Equal,
     Greater,
     Less,
+    Print,
 }
 
 impl OpCode {
@@ -73,6 +75,7 @@ impl TryFrom<u8> for OpCode {
             12 => Ok(OpCode::Equal),
             13 => Ok(OpCode::Greater),
             14 => Ok(OpCode::Less),
+            15 => Ok(OpCode::Print),
             _ => Err(()),
         }
     }
@@ -129,6 +132,7 @@ impl Chunk {
             Op::Equal => self.code.push(12),
             Op::Greater => self.code.push(13),
             Op::Less => self.code.push(14),
+            Op::Print => self.code.push(15),
         }
         self.push_line_no(line_no);
     }
@@ -181,6 +185,7 @@ impl Chunk {
             OpCode::Equal => (Op::Equal, 1),
             OpCode::Greater => (Op::Greater, 1),
             OpCode::Less => (Op::Less, 1),
+            OpCode::Print => (Op::Print, 1),
         }
     }
 

@@ -70,6 +70,7 @@ impl Chunk {
             OpCode::Equal => println!("OP_EQUAL"),
             OpCode::Greater => println!("OP_GREATER"),
             OpCode::Less => println!("OP_LESS"),
+            OpCode::Print => println!("OP_PRINT"),
         }
     }
 }
