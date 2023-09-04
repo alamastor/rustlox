@@ -107,6 +107,9 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 Op::False => {
                     self.push(Value::Bool(false));
                 }
+                Op::Pop =>{
+                    self.pop();
+                }
                 Op::Add => {
                     if let Value::Obj(x) = self.peek(0) &&
                        let Object::String { chars: a } = x &&

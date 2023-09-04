@@ -79,6 +79,12 @@ impl<'a> Parser<'a> {
         self.parse_precedence(Precedence::Assignment as usize);
     }
 
+    fn expression_statement(&mut self) {
+        self.expression();
+        self.consume(Token::Semicolon, "Expect ';' after expression.".to_string());
+        self.emit_byte(Op::Pop)
+    }
+
     fn declaration(&mut self) {
         self.statement();
     }
@@ -86,6 +92,8 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) {
         if self.match_(Token::Print) {
             self.print_statement();
+        } else {
+            self.expression_statement();
         }
     }
 
