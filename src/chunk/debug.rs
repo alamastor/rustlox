@@ -47,16 +47,10 @@ impl Chunk {
         match op_code {
             OpCode::Return => println!("OP_RETURN"),
             OpCode::Constant => {
-                let const_idx = self.code[idx + 1];
-                let value = self.constants[const_idx as usize].clone();
-                println!("OP_CONSTANT        {idx} '{value}'");
+                println!("OP_CONSTANT           {idx} '{}'", self.get_const_short(idx));
             }
             OpCode::ConstantLong => {
-                let lo = (self.code[idx + 1]) as u16;
-                let hi = (self.code[idx + 1]) as u16;
-                let const_idx = (hi << 8) + lo;
-                let value = self.constants[const_idx as usize].clone();
-                println!("OP_CONSTANT_LONG   {idx} '{value}'");
+                println!("OP_CONSTANT_LONG      {idx} '{}'", self.get_const_long(idx));
             }
             OpCode::Negate => println!("OP_NEGATE"),
             OpCode::Add => println!("OP_ADD"),
@@ -72,6 +66,12 @@ impl Chunk {
             OpCode::Less => println!("OP_LESS"),
             OpCode::Print => println!("OP_PRINT"),
             OpCode::Pop => println!("OP_POP"),
+            OpCode::DefineGlobal => {
+                println!("OP_DEFINE_GLOBAL      {idx} '{}'", self.get_const_short(idx));
+            },
+            OpCode::DefineGlobalLong => {
+                println!("OP_DEFINE_GLOBAL_LONG {idx} '{}'", self.get_const_long(idx));
+            },
         }
     }
 }

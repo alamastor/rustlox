@@ -14,6 +14,8 @@ const RETURN_TRUE: &str = "true\n";
 #[case::string_eq("print \"asdf\n\" == \"asdf\n\";", RETURN_TRUE, "")]
 #[case::string_neq("print \"xyz\" == \"yzx\";", RETURN_FALSE, "")]
 #[case::string_concat("print \"a\" + \"b\" == \"ab\";", RETURN_TRUE, "")]
+#[case::define_global("var GLOB = 1;", "", "")]
+#[case::define_global_uninit("var GLOB;", "", "")]
 fn interpreter(#[case] input: &str, #[case] expected_output: &str, #[case] expected_error: &str) {
     assert_interpreter_output(input, expected_output, expected_error) 
 }

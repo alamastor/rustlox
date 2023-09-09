@@ -1,8 +1,10 @@
 use crate::chunk::{Chunk, Op};
+use crate::object::Object;
 use crate::scanner::{Scanner, Token, TokenData};
+use crate::strings::Strings;
 use crate::value::Value;
 
-pub fn compile(source: &str) -> Result<Chunk, ()> {
+pub fn compile(source: &str) -> Result<(Chunk, Vec<Object>, Strings), ()> {
     let mut parser = Parser::new(source);
     if cfg!(feature = "trace") {
         parser.chunk.disassemble("chunk");
@@ -16,7 +18,7 @@ pub fn compile(source: &str) -> Result<Chunk, ()> {
     if parser.had_error {
         Err(())
     } else {
-        Ok(parser.chunk)
+        Ok((parser.chunk, parser.objects, parser.strings))
     }
 }
 
@@ -24,6 +26,8 @@ struct Parser<'a> {
     scanner: Scanner<'a>,
     chunk: Chunk,
     prev_token: TokenData<'a>,
+    objects: Vec<Object>,
+    strings: Strings,
     had_error: bool,
     panic_mode: bool,
 }
@@ -33,6 +37,8 @@ impl<'a> Parser<'a> {
         Parser {
             scanner: Scanner::new(source),
             chunk: Chunk::new(),
+            objects: vec![],
+            strings: Strings::new(),
             prev_token: TokenData {
                 token: Token::Sof,
                 line: 0,
@@ -79,6 +85,22 @@ impl<'a> Parser<'a> {
         self.parse_precedence(Precedence::Assignment as usize);
     }
 
+    fn var_declaration(&mut self) {
+        let global = self.parse_variable("Expect variable name.".to_string());
+
+        if self.match_(Token::Equal) {
+            self.expression();
+        } else {
+            self.emit_byte(Op::Nil);
+        }
+        self.consume(
+            Token::Semicolon,
+            "Expect ';' after variable declaration.".to_string(),
+        );
+
+        self.define_variable(global);
+    }
+
     fn expression_statement(&mut self) {
         self.expression();
         self.consume(Token::Semicolon, "Expect ';' after expression.".to_string());
@@ -86,7 +108,11 @@ impl<'a> Parser<'a> {
     }
 
     fn declaration(&mut self) {
-        self.statement();
+        if self.match_(Token::Var) {
+            self.var_declaration();
+        } else {
+            self.statement();
+        }
 
         if self.panic_mode {
             self.synchronize();
@@ -208,8 +234,9 @@ impl<'a> Parser<'a> {
 
     fn string(&mut self) {
         let string_data = self.prev_token.source[1..self.prev_token.source.len() - 1].to_string();
-        let new_string = self.chunk.objects.new_string(string_data);
-        self.emit_constant(Value::Obj(new_string));
+        let object = Object::String {chars: self.strings.new_string(string_data)};
+        self.objects.push(object);
+        self.emit_constant(Value::Obj(self.objects.last().unwrap().clone()));
     }
 
     fn consume(&mut self, expected_token: Token, message: String) {
@@ -278,6 +305,20 @@ impl<'a> Parser<'a> {
                 _ => self.error("Expect expression".to_string()),
             }
         }
+    }
+
+    fn parse_variable(&mut self, error_message: String) -> String {
+        self.consume(Token::Identifier, error_message);
+        self.identifier_constant(self.prev_token)
+    }
+
+    fn define_variable(&mut self, name: String) {
+        let string = self.strings.new_string(name);
+        self.emit_byte(Op::DefineGlobal { name: string })
+    }
+
+    fn identifier_constant(&mut self, token_data: TokenData) -> String {
+        token_data.source.to_string()
     }
 
     fn current_precedence(&mut self) -> Precedence {

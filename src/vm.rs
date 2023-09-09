@@ -1,8 +1,11 @@
 use crate::chunk::{Chunk, Op};
 use crate::compiler;
-use crate::object::{Object, Objects};
+use crate::object::Object;
+use crate::strings::Strings;
 use crate::value::Value;
+use std::collections::HashMap;
 use std::io::Write;
+use std::rc::Rc;
 use std::slice::Iter;
 
 pub fn interpret<O: Write, E: Write>(
@@ -10,8 +13,8 @@ pub fn interpret<O: Write, E: Write>(
     out_stream: &mut O,
     err_stream: &mut E,
 ) -> Result<(), InterpretError> {
-    let chunk = compiler::compile(source).map_err(|_| InterpretError::CompileError)?;
-    VM::new(&chunk, out_stream, err_stream).run()
+    let (chunk, objects, strings) = compiler::compile(source).map_err(|_| InterpretError::CompileError)?;
+    VM::new(chunk, objects, strings, out_stream, err_stream).run()
 }
 
 macro_rules! bin_op {
@@ -45,20 +48,30 @@ macro_rules! bool_bin_op {
 }
 
 pub struct VM<'a, O: Write, E: Write> {
-    chunk: &'a Chunk,
+    chunk: Chunk,
     ip: usize,
     stack: Vec<Value>,
-    objects: Objects,
+    objects: Vec<Object>,
+    strings: Strings,
+    globals: HashMap<Rc<String>, Value>,
     out_stream: &'a mut O,
     err_stream: &'a mut E,
 }
 impl<'a, O: Write, E: Write> VM<'a, O, E> {
-    fn new(chunk: &'a Chunk, out_stream: &'a mut O, err_stream: &'a mut E) -> VM<'a, O, E> {
+    fn new(
+        chunk: Chunk,
+        objects:Vec<Object>,
+        strings: Strings,
+        out_stream: &'a mut O,
+        err_stream: &'a mut E
+    ) -> VM<'a, O, E> {
         VM {
             chunk,
             ip: 0,
+            objects,
+            strings,
             stack: vec![],
-            objects: Objects::new(),
+            globals: HashMap::new(),
             out_stream,
             err_stream,
         }
@@ -107,8 +120,12 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 Op::False => {
                     self.push(Value::Bool(false));
                 }
-                Op::Pop =>{
+                Op::Pop => {
                     self.pop();
+                }
+                Op::DefineGlobal {name} => {
+                    let val = self.pop();
+                    self.globals.insert(name, val);
                 }
                 Op::Add => {
                     if let Value::Obj(x) = self.peek(0) &&
@@ -116,8 +133,8 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                        let Value::Obj(y) = self.peek(1)
                     {
                         let Object::String { chars: b } = y;
-                        let new_string = self.objects.new_string((**b).to_owned() + &**a);
-                        self.stack.push(Value::Obj(new_string));
+                        let new_string = self.strings.new_string((**b).to_owned() + &**a);
+                        self.stack.push(Value::Obj(Object::String { chars: new_string }));
                     } else {
                         bin_op!(self, +);
                     }

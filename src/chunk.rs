@@ -1,7 +1,8 @@
 use std::convert::TryFrom;
 use std::convert::TryInto;
+use std::rc::Rc;
 
-use crate::object::Objects;
+use crate::object::Object;
 use crate::value::Value;
 
 mod debug;
@@ -24,6 +25,7 @@ pub enum Op {
     Less,
     Print,
     Pop,
+    DefineGlobal { name: Rc<String> },
 }
 
 #[derive(Debug)]
@@ -45,6 +47,8 @@ enum OpCode {
     Less,
     Print,
     Pop,
+    DefineGlobal,
+    DefineGlobalLong,
 }
 
 impl OpCode {
@@ -79,6 +83,8 @@ impl TryFrom<u8> for OpCode {
             14 => Ok(OpCode::Less),
             15 => Ok(OpCode::Print),
             16 => Ok(OpCode::Pop),
+            17 => Ok(OpCode::DefineGlobal),
+            18 => Ok(OpCode::DefineGlobalLong),
             _ => Err(()),
         }
     }
@@ -86,7 +92,6 @@ impl TryFrom<u8> for OpCode {
 
 pub struct Chunk {
     pub code: Vec<u8>,
-    pub objects: Objects,
     pub constants: Vec<Value>,
     pub line_nos: Vec<(u32, u32)>,
 }
@@ -95,7 +100,6 @@ impl Chunk {
     pub fn new() -> Chunk {
         Chunk {
             code: vec![],
-            objects: Objects::new(),
             constants: vec![],
             line_nos: vec![],
         }
@@ -104,25 +108,7 @@ impl Chunk {
     pub fn push_op_code(&mut self, op: Op, line_no: u32) {
         match op {
             Op::Return => self.code.push(0),
-            Op::Constant { value } => {
-                self.constants.push(value);
-                const U8_SIZE: usize = ::std::mem::size_of::<u8>() * 8;
-                const U8_SIZE_PLUS_1: usize = ::std::mem::size_of::<u8>() * 8 + 1;
-                const U16_SIZE: usize = ::std::mem::size_of::<u16>() * 8;
-                let const_idx = self.constants.len() - 1;
-                match const_idx {
-                    0..=U8_SIZE => {
-                        self.code.push(1);
-                        self.code.push(const_idx as u8);
-                    }
-                    U8_SIZE_PLUS_1..=U16_SIZE => {
-                        self.code.push(2);
-                        self.code.push(((const_idx as u16) & 0xFF) as u8);
-                        self.code.push(((const_idx as u16) >> 8) as u8);
-                    }
-                    _ => panic!("Tried to store constant index {} as a u16", const_idx),
-                }
-            }
+            Op::Constant { value } => self.push_constant_op(value, 1, 2),
             Op::Negate => self.code.push(3),
             Op::Add => self.code.push(4),
             Op::Subtract => self.code.push(5),
@@ -137,8 +123,31 @@ impl Chunk {
             Op::Less => self.code.push(14),
             Op::Print => self.code.push(15),
             Op::Pop => self.code.push(16),
+            Op::DefineGlobal { name } => {
+                self.push_constant_op(Value::Obj(Object::String { chars: name }), 17, 18)
+            }
         }
         self.push_line_no(line_no);
+    }
+
+    fn push_constant_op(&mut self, value: Value, short_op_code: u8, long_op_code: u8) {
+        self.constants.push(value);
+        const U8_SIZE: usize = ::std::mem::size_of::<u8>() * 8;
+        const U8_SIZE_PLUS_1: usize = ::std::mem::size_of::<u8>() * 8 + 1;
+        const U16_SIZE: usize = ::std::mem::size_of::<u16>() * 8;
+        let const_idx = self.constants.len() - 1;
+        match const_idx {
+            0..=U8_SIZE => {
+                self.code.push(short_op_code);
+                self.code.push(const_idx as u8);
+            }
+            U8_SIZE_PLUS_1..=U16_SIZE => {
+                self.code.push(long_op_code);
+                self.code.push(((const_idx as u16) & 0xFF) as u8);
+                self.code.push(((const_idx as u16) >> 8) as u8);
+            }
+            _ => panic!("Tried to store constant index {} as a u16", const_idx),
+        }
     }
 
     fn push_line_no(&mut self, line_no: u32) {
@@ -165,18 +174,18 @@ impl Chunk {
         };
         match op_code {
             OpCode::Return => (Op::Return {}, 1),
-            OpCode::Constant => {
-                let const_idx = self.code[idx + 1];
-                let value = self.constants[const_idx as usize].clone();
-                (Op::Constant { value }, 2)
-            }
-            OpCode::ConstantLong => {
-                let lo = (self.code[idx + 1]) as u16;
-                let hi = (self.code[idx + 1]) as u16;
-                let const_idx = (hi << 8) + lo;
-                let value = self.constants[const_idx as usize].clone();
-                (Op::Constant { value }, 3)
-            }
+            OpCode::Constant => (
+                Op::Constant {
+                    value: self.get_const_short(idx),
+                },
+                2,
+            ),
+            OpCode::ConstantLong => (
+                Op::Constant {
+                    value: self.get_const_long(idx),
+                },
+                3,
+            ),
             OpCode::Negate => (Op::Negate, 1),
             OpCode::Add => (Op::Add, 1),
             OpCode::Subtract => (Op::Subtract, 1),
@@ -191,7 +200,29 @@ impl Chunk {
             OpCode::Less => (Op::Less, 1),
             OpCode::Print => (Op::Print, 1),
             OpCode::Pop => (Op::Pop, 1),
+            OpCode::DefineGlobal => match self.get_const_short(idx) {
+                Value::Obj(Object::String { chars: name }) => (Op::DefineGlobal { name }, 2),
+                _ => panic!("Expected string object value!"),
+            },
+            OpCode::DefineGlobalLong => {
+                match self.get_const_long(idx) {
+                    Value::Obj(Object::String { chars: name }) => (Op::DefineGlobal { name }, 3),
+                    _ => panic!("Expected string object value!"),
+                }
+            }
         }
+    }
+
+    fn get_const_short(&self, idx: usize) -> Value {
+        let const_idx = self.code[idx + 1];
+        self.constants[const_idx as usize].clone()
+    }
+
+    fn get_const_long(&self, idx: usize) -> Value {
+        let lo = (self.code[idx + 1]) as u16;
+        let hi = (self.code[idx + 1]) as u16;
+        let const_idx = (hi << 8) + lo;
+        self.constants[const_idx as usize].clone()
     }
 
     pub fn get_line_no(&self, op_idx: usize) -> u32 {
@@ -214,7 +245,7 @@ impl Chunk {
         let mut result = 0;
         while i < code_idx {
             i += self.decode(i).1;
-            result += 1
+            result += 0
         }
         result
     }

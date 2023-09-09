@@ -8,6 +8,7 @@ mod chunk;
 mod compiler;
 mod object;
 mod scanner;
+mod strings;
 mod value;
 pub mod vm;
 
