@@ -239,6 +239,16 @@ impl<'a> Parser<'a> {
         self.emit_constant(Value::Obj(self.objects.last().unwrap().clone()));
     }
 
+    fn variable(&mut self) {
+        self.named_variable(self.prev_token);
+    }
+
+    fn named_variable(&mut self, name: TokenData) {
+        let arg = self.identifier_constant(name);
+        let name = self.strings.new_string(arg);
+        self.emit_byte(Op::GetGlobal { name })
+    }
+
     fn consume(&mut self, expected_token: Token, message: String) {
         if self.scanner.peek().token == expected_token {
             self.advance();
@@ -286,6 +296,7 @@ impl<'a> Parser<'a> {
             Token::Nil => self.literal(),
             Token::Bang => self.unary(),
             Token::String => self.string(),
+            Token::Identifier => self.variable(),
             _ => self.error("Expect expression".to_string()),
         }
 

@@ -3,6 +3,7 @@ use crate::compiler;
 use crate::object::Object;
 use crate::strings::Strings;
 use crate::value::Value;
+use std::cmp;
 use std::collections::HashMap;
 use std::io::Write;
 use std::rc::Rc;
@@ -13,7 +14,8 @@ pub fn interpret<O: Write, E: Write>(
     out_stream: &mut O,
     err_stream: &mut E,
 ) -> Result<(), InterpretError> {
-    let (chunk, objects, strings) = compiler::compile(source).map_err(|_| InterpretError::CompileError)?;
+    let (chunk, objects, strings) =
+        compiler::compile(source).map_err(|_| InterpretError::CompileError)?;
     VM::new(chunk, objects, strings, out_stream, err_stream).run()
 }
 
@@ -27,7 +29,7 @@ macro_rules! bin_op {
 
             $self.push(Value::Number(b $op a));
         } else {
-            $self.runtime_error("Operands must be numbers.");
+            $self.runtime_error("Operands must be numbers.".to_string());
         }
     };
 }
@@ -42,7 +44,7 @@ macro_rules! bool_bin_op {
 
             $self.push(Value::Bool(a $op b));
         } else {
-            $self.runtime_error("Operands must be numbers.");
+            $self.runtime_error("Operands must be numbers.".to_string());
         }
     };
 }
@@ -60,10 +62,10 @@ pub struct VM<'a, O: Write, E: Write> {
 impl<'a, O: Write, E: Write> VM<'a, O, E> {
     fn new(
         chunk: Chunk,
-        objects:Vec<Object>,
+        objects: Vec<Object>,
         strings: Strings,
         out_stream: &'a mut O,
-        err_stream: &'a mut E
+        err_stream: &'a mut E,
     ) -> VM<'a, O, E> {
         VM {
             chunk,
@@ -106,7 +108,7 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                             self.stack.push(Value::Number(-val));
                         }
                         _ => {
-                            self.runtime_error("Operand must be a number.");
+                            self.runtime_error("Operand must be a number.".to_string());
                             return Result::Err(InterpretError::RuntimeError);
                         }
                     };
@@ -122,6 +124,15 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 }
                 Op::Pop => {
                     self.pop();
+                }
+                Op::GetGlobal { name } => {
+                    match self.globals.get(&name) {
+                        Some(value) => self.push(value.to_owned()),
+                        None => {
+                            self.runtime_error(format!("Undefined variable '{}'.", name));
+                            return Result::Err(InterpretError::RuntimeError);
+                        }
+                    }
                 }
                 Op::DefineGlobal {name} => {
                     let val = self.pop();
@@ -190,9 +201,11 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
         self.stack.iter()
     }
 
-    fn runtime_error(&mut self, message: &str) {
+    fn runtime_error(&mut self, message: String) {
         eprintln!("{message}");
-        let line = self.chunk.get_line_no(self.chunk.get_op_idx(self.ip - 1));
+        let line = self
+            .chunk
+            .get_line_no(self.chunk.get_op_idx(cmp::max(self.ip, 1) - 1));
         eprintln!("[line {line}] in script");
         self.stack = vec![];
     }

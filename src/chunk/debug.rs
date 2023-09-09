@@ -72,6 +72,12 @@ impl Chunk {
             OpCode::DefineGlobalLong => {
                 println!("OP_DEFINE_GLOBAL_LONG {idx} '{}'", self.get_const_long(idx));
             },
+            OpCode::GetGlobal => {
+                println!("OP_GET_GLOBAL         {idx} '{}'", self.get_const_short(idx));
+            },
+            OpCode::GetGlobalLong => {
+                println!("OP_GET_GLOBAL_LONG    {idx} '{}'", self.get_const_long(idx));
+            },
         }
     }
 }
