@@ -1,12 +1,17 @@
-use lox::vm::interpret;
+use lox::vm::{interpret, InterpretError};
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::str;
 
-pub fn assert_interpreter_output(input: &str, expected_output: &str, expected_error: &str) {
+pub fn assert_interpreter_output(
+    input: &str,
+    expected_output: &str,
+    expected_error: &str,
+    expected_result: Result<(), InterpretError>,
+) {
     let mut out_cursor = Cursor::new(Vec::new());
     let mut err_cursor = Cursor::new(Vec::new());
 
-    interpret(input, &mut out_cursor, &mut err_cursor).unwrap();
+    assert_eq!(interpret(input, &mut out_cursor, &mut err_cursor), expected_result);
 
     assert_eq!(read_cursor(out_cursor), expected_output);
     assert_eq!(read_cursor(err_cursor), expected_error);

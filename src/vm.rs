@@ -8,8 +8,9 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::rc::Rc;
 use std::slice::Iter;
+use std::fmt::Write as FmtWrite;
 
-pub fn interpret<O: Write, E: Write>(
+pub fn interpret<O: std::io::Write, E: std::io::Write>(
     source: &str,
     out_stream: &mut O,
     err_stream: &mut E,
@@ -108,8 +109,7 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                             self.stack.push(Value::Number(-val));
                         }
                         _ => {
-                            self.runtime_error("Operand must be a number.".to_string());
-                            return Result::Err(InterpretError::RuntimeError);
+                            return Result::Err(self.runtime_error("Operand must be a number.".to_string()));
                         }
                     };
                 }
@@ -129,8 +129,7 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                     match self.globals.get(&name) {
                         Some(value) => self.push(value.to_owned()),
                         None => {
-                            self.runtime_error(format!("Undefined variable '{}'.", name));
-                            return Result::Err(InterpretError::RuntimeError);
+                            return Result::Err(self.runtime_error(format!("Undefined variable '{}'.", name)));
                         }
                     }
                 }
@@ -201,20 +200,20 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
         self.stack.iter()
     }
 
-    fn runtime_error(&mut self, message: String) {
-        eprintln!("{message}");
+    fn runtime_error(&mut self, mut message: String) -> InterpretError {
         let line = self
             .chunk
             .get_line_no(self.chunk.get_op_idx(cmp::max(self.ip, 1) - 1));
-        eprintln!("[line {line}] in script");
+        writeln!(&mut message, "\n[line {line}] in script").unwrap();
         self.stack = vec![];
+        InterpretError::RuntimeError(message)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum InterpretError {
     CompileError,
-    RuntimeError,
+    RuntimeError(String),
 }
 
 fn is_falsey(value: Value) -> bool {

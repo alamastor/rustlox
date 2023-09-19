@@ -18,7 +18,7 @@ fn main() {
                 "{}",
                 match err {
                     LoxError::CompileError => "Compile error!".to_string(),
-                    LoxError::RuntimeError => "Runtime error!".to_string(),
+                    LoxError::RuntimeError(msg) => format!("Runtime error!: {msg}"),
                     LoxError::ReadError => "Read error!".to_string(),
                 }
             )

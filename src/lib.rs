@@ -38,14 +38,14 @@ pub fn run_file(path: &str) -> Result<(), LoxError> {
 
 pub enum LoxError {
     CompileError,
-    RuntimeError,
+    RuntimeError(String),
     ReadError,
 }
 impl From<vm::InterpretError> for LoxError {
     fn from(value: vm::InterpretError) -> Self {
         match value {
             vm::InterpretError::CompileError => LoxError::CompileError,
-            vm::InterpretError::RuntimeError => LoxError::RuntimeError,
+            vm::InterpretError::RuntimeError(msg) => LoxError::RuntimeError(msg),
         }
     }
 }
