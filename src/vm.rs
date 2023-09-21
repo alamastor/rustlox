@@ -133,9 +133,16 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                         }
                     }
                 }
-                Op::DefineGlobal {name} => {
+                Op::DefineGlobal { name } => {
                     let val = self.pop();
                     self.globals.insert(name, val);
+                }
+                Op::SetGlobal { name } => {
+                    if self.globals.contains_key(&*name) {
+                        self.globals.insert(name, self.peek(0).clone());
+                    } else {
+                        return Result::Err(self.runtime_error(format!("Undefined variable '{}'.", name)));
+                    }
                 }
                 Op::Add => {
                     if let Value::Obj(x) = self.peek(0) &&

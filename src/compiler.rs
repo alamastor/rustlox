@@ -234,19 +234,26 @@ impl<'a> Parser<'a> {
 
     fn string(&mut self) {
         let string_data = self.prev_token.source[1..self.prev_token.source.len() - 1].to_string();
-        let object = Object::String {chars: self.strings.new_string(string_data)};
+        let object = Object::String {
+            chars: self.strings.new_string(string_data),
+        };
         self.objects.push(object);
         self.emit_constant(Value::Obj(self.objects.last().unwrap().clone()));
     }
 
-    fn variable(&mut self) {
-        self.named_variable(self.prev_token);
+    fn variable(&mut self, can_assign: bool) {
+        self.named_variable(self.prev_token, can_assign);
     }
 
-    fn named_variable(&mut self, name: TokenData) {
+    fn named_variable(&mut self, name: TokenData, can_assign: bool) {
         let arg = self.identifier_constant(name);
         let name = self.strings.new_string(arg);
-        self.emit_byte(Op::GetGlobal { name })
+        if can_assign && self.match_(Token::Equal) {
+            self.expression();
+            self.emit_byte(Op::SetGlobal { name })
+        } else {
+            self.emit_byte(Op::GetGlobal { name })
+        }
     }
 
     fn consume(&mut self, expected_token: Token, message: String) {
@@ -267,7 +274,6 @@ impl<'a> Parser<'a> {
     }
 
     fn emit_byte(&mut self, op: Op) {
-        println!("emitting {op:?}");
         self.chunk.push_op_code(op, self.prev_token.line)
     }
 
@@ -287,6 +293,7 @@ impl<'a> Parser<'a> {
     fn parse_precedence(&mut self, precedence: usize) {
         self.advance();
 
+        let can_assign = precedence <= Precedence::Assignment as usize;
         match self.prev_token.token {
             Token::LeftParen => self.grouping(),
             Token::Minus => self.unary(),
@@ -296,7 +303,7 @@ impl<'a> Parser<'a> {
             Token::Nil => self.literal(),
             Token::Bang => self.unary(),
             Token::String => self.string(),
-            Token::Identifier => self.variable(),
+            Token::Identifier => self.variable(can_assign),
             _ => self.error("Expect expression".to_string()),
         }
 
@@ -315,6 +322,10 @@ impl<'a> Parser<'a> {
                 Token::LessEqual => self.binary(),
                 _ => self.error("Expect expression".to_string()),
             }
+        }
+
+        if can_assign && self.match_(Token::Equal) {
+            self.error("Invalid assignment target.".to_string());
         }
     }
 

@@ -27,6 +27,7 @@ pub enum Op {
     Pop,
     DefineGlobal { name: Rc<String> },
     GetGlobal { name: Rc<String> },
+    SetGlobal { name: Rc<String> },
 }
 
 #[derive(Debug)]
@@ -52,6 +53,8 @@ enum OpCode {
     DefineGlobalLong,
     GetGlobal,
     GetGlobalLong,
+    SetGlobal,
+    SetGlobalLong,
 }
 
 impl OpCode {
@@ -90,6 +93,8 @@ impl TryFrom<u8> for OpCode {
             18 => Ok(OpCode::DefineGlobalLong),
             19 => Ok(OpCode::GetGlobal),
             20 => Ok(OpCode::GetGlobalLong),
+            21 => Ok(OpCode::SetGlobal),
+            22 => Ok(OpCode::SetGlobalLong),
             _ => Err(()),
         }
     }
@@ -130,11 +135,13 @@ impl Chunk {
             Op::Pop => self.code.push(16),
             Op::DefineGlobal { name } => {
                 self.push_constant_op(Value::Obj(Object::String { chars: name }), 17, 18)
-            },
+            }
             Op::GetGlobal { name } => {
                 self.push_constant_op(Value::Obj(Object::String { chars: name }), 19, 20)
             }
-
+            Op::SetGlobal { name } => {
+                self.push_constant_op(Value::Obj(Object::String { chars: name }), 21, 22)
+            }
         }
         self.push_line_no(line_no);
     }
@@ -213,22 +220,26 @@ impl Chunk {
                 Value::Obj(Object::String { chars: name }) => (Op::DefineGlobal { name }, 2),
                 _ => panic!("Expected string object value!"),
             },
-            OpCode::DefineGlobalLong => {
-                match self.get_const_long(idx) {
-                    Value::Obj(Object::String { chars: name }) => (Op::DefineGlobal { name }, 3),
-                    _ => panic!("Expected string object value!"),
-                }
-            }
+            OpCode::DefineGlobalLong => match self.get_const_long(idx) {
+                Value::Obj(Object::String { chars: name }) => (Op::DefineGlobal { name }, 3),
+                _ => panic!("Expected string object value!"),
+            },
             OpCode::GetGlobal => match self.get_const_short(idx) {
                 Value::Obj(Object::String { chars: name }) => (Op::GetGlobal { name }, 2),
                 _ => panic!("Expected string object value!"),
             },
-            OpCode::GetGlobalLong => {
-                match self.get_const_long(idx) {
-                    Value::Obj(Object::String { chars: name }) => (Op::GetGlobal { name }, 3),
-                    _ => panic!("Expected string object value!"),
-                }
-            }
+            OpCode::GetGlobalLong => match self.get_const_long(idx) {
+                Value::Obj(Object::String { chars: name }) => (Op::GetGlobal { name }, 3),
+                _ => panic!("Expected string object value!"),
+            },
+            OpCode::SetGlobal => match self.get_const_short(idx) {
+                Value::Obj(Object::String { chars: name }) => (Op::SetGlobal { name }, 2),
+                _ => panic!("Expected string object value!"),
+            },
+            OpCode::SetGlobalLong => match self.get_const_long(idx) {
+                Value::Obj(Object::String { chars: name }) => (Op::SetGlobal { name }, 3),
+                _ => panic!("Expected string object value!"),
+            },
         }
     }
 

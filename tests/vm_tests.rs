@@ -19,6 +19,11 @@ const RETURN_TRUE: &str = "true\n";
 #[case::global_default("var GLOB; print GLOB;", "nil\n", "", Result::Ok(()))]
 #[case::global_uninit("print UNINIT;", "", "", Result::Err(InterpretError::RuntimeError(
     "Undefined variable 'UNINIT'.\n[line 1] in script\n".to_string())))]
+#[case::global_default(
+"var A = 3;\
+var B = 5;\
+A = A + B;
+print A;", "8\n", "", Result::Ok(()))]
 fn interpreter(
     #[case] input: &str,
     #[case] expected_output: &str,
