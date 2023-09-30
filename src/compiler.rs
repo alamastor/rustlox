@@ -24,6 +24,7 @@ pub fn compile(source: &str) -> Result<(Chunk, Vec<Object>, Strings), ()> {
 
 struct Parser<'a> {
     scanner: Scanner<'a>,
+    compiler: Compiler,
     chunk: Chunk,
     prev_token: TokenData<'a>,
     objects: Vec<Object>,
@@ -36,6 +37,7 @@ impl<'a> Parser<'a> {
     fn new(source: &'a str) -> Parser<'a> {
         Parser {
             scanner: Scanner::new(source),
+            compiler: Compiler::new(),
             chunk: Chunk::new(),
             objects: vec![],
             strings: Strings::new(),
@@ -85,6 +87,14 @@ impl<'a> Parser<'a> {
         self.parse_precedence(Precedence::Assignment as usize);
     }
 
+    fn block(&mut self) {
+        while self.prev_token.token != Token::RightBrace && self.prev_token.token != Token::Eof {
+            self.declaration();
+        }
+
+        self.consume(Token::RightBrace, "Expect '}' after block.".to_string());
+    }
+
     fn var_declaration(&mut self) {
         let global = self.parse_variable("Expect variable name.".to_string());
 
@@ -122,6 +132,10 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) {
         if self.match_(Token::Print) {
             self.print_statement();
+        } else if self.match_(Token::LeftBrace) {
+            self.begin_scope();
+            self.block();
+            self.end_scope();
         } else {
             self.expression_statement();
         }
@@ -290,6 +304,14 @@ impl<'a> Parser<'a> {
         self.emit_byte(Op::Return)
     }
 
+    fn begin_scope(&mut self) {
+        self.compiler.scope_depth += 1;
+    }
+
+    fn end_scope(&mut self) {
+        self.compiler.scope_depth -= 1;
+    }
+
     fn parse_precedence(&mut self, precedence: usize) {
         self.advance();
 
@@ -391,4 +413,25 @@ fn error_at(token_data: &TokenData, message: String) {
         "[line {}] Error at {}: {message}",
         token_data.line, token_data.start
     );
+}
+
+struct Compiler {
+    locals: Vec<Local>,
+    local_count: usize,
+    scope_depth: usize,
+}
+
+impl Compiler {
+    fn new() -> Self {
+        Compiler {
+            locals: vec![],
+            local_count: 0,
+            scope_depth: 0,
+        }
+    }
+}
+
+struct Local {
+    name: Token,
+    depth: usize,
 }
