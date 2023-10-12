@@ -34,11 +34,29 @@ print A;", "8\n", "", Result::Ok(()))]
     "var a = 10;\
 {
   var a = a + 3;\
-  print a;\
 }",
     "",
     "",
     Result::Err(InterpretError::CompileError)
+)]
+#[case::if_(
+"if (true)
+  print 1;
+if (false)
+  print 2;
+print 3;
+",
+    "1\n3\n",
+    "",
+    Result::Ok(())
+)]
+#[case::prints(
+"print 1;
+print 2;
+",
+    "1\n2\n",
+    "",
+    Result::Ok(())
 )]
 fn interpreter(
     #[case] input: &str,

@@ -99,7 +99,6 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 Op::Print => {
                     let val = self.pop();
                     writeln!(self.out_stream, "{val}").unwrap();
-                    return Result::Ok(());
                 }
                 Op::Negate => {
                     match self.peek(0) {
@@ -172,7 +171,7 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                     bin_op!(self, /);
                 }
                 Op::Not => {
-                    let bool = Value::Bool(is_falsey(self.pop()));
+                    let bool = Value::Bool(is_falsey(&self.pop()));
                     self.stack.push(bool);
                 }
                 Op::Equal => {
@@ -185,6 +184,12 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 }
                 Op::Less => {
                     bool_bin_op!(self, <);
+                }
+                Op::JumpIfFalse {offset} => {
+                    if is_falsey(self.peek(0)) {
+                        println!("Jumping {offset}");
+                        self.ip+=offset as usize;
+                    }
                 }
             }
             self.ip += op_size;
@@ -229,7 +234,7 @@ pub enum InterpretError {
     RuntimeError(String),
 }
 
-fn is_falsey(value: Value) -> bool {
+fn is_falsey(value: &Value) -> bool {
     match value {
         Value::Nil => true,
         Value::Bool(x) => !x,

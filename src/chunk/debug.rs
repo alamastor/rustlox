@@ -47,7 +47,10 @@ impl Chunk {
         match op_code {
             OpCode::Return => println!("OP_RETURN"),
             OpCode::Constant => {
-                println!("OP_CONSTANT           {idx} '{}'", self.get_const_short(idx));
+                println!(
+                    "OP_CONSTANT           {idx} '{}'",
+                    self.get_const_short(idx)
+                );
             }
             OpCode::ConstantLong => {
                 println!("OP_CONSTANT_LONG      {idx} '{}'", self.get_const_long(idx));
@@ -67,29 +70,41 @@ impl Chunk {
             OpCode::Print => println!("OP_PRINT"),
             OpCode::Pop => println!("OP_POP"),
             OpCode::DefineGlobal => {
-                println!("OP_DEFINE_GLOBAL      {idx} '{}'", self.get_const_short(idx));
-            },
+                println!(
+                    "OP_DEFINE_GLOBAL      {idx} '{}'",
+                    self.get_const_short(idx)
+                );
+            }
             OpCode::DefineGlobalLong => {
                 println!("OP_DEFINE_GLOBAL_LONG {idx} '{}'", self.get_const_long(idx));
-            },
+            }
             OpCode::GetGlobal => {
-                println!("OP_GET_GLOBAL         {idx} '{}'", self.get_const_short(idx));
-            },
+                println!(
+                    "OP_GET_GLOBAL         {idx} '{}'",
+                    self.get_const_short(idx)
+                );
+            }
             OpCode::SetGlobalLong => {
                 println!("OP_SET_GLOBAL_LONG    {idx} '{}'", self.get_const_long(idx));
-            },
+            }
             OpCode::SetGlobal => {
-                println!("OP_SET_GLOBAL         {idx} '{}'", self.get_const_short(idx));
-            },
+                println!(
+                    "OP_SET_GLOBAL         {idx} '{}'",
+                    self.get_const_short(idx)
+                );
+            }
             OpCode::GetGlobalLong => {
                 println!("OP_GET_GLOBAL_LONG    {idx} '{}'", self.get_const_long(idx));
-            },
+            }
             OpCode::GetLocal => {
-                println!("OP_GET_LOCAL          {idx} '{}'", self.code[idx+1]);
-            },
+                println!("OP_GET_LOCAL          {idx} '{}'", self.code[idx + 1]);
+            }
             OpCode::SetLocal => {
-                println!("OP_SET_LOCAL          {idx} '{}'", self.code[idx+1]);
-            },
+                println!("OP_SET_LOCAL          {idx} '{}'", self.code[idx + 1]);
+            }
+            OpCode::JumpIfFalse => {
+                println!("OP_JUMP_IF_FALSE      {idx} '{}'", self.get_u16(idx + 1));
+            }
         }
     }
 }

@@ -30,6 +30,7 @@ pub enum Op {
     SetGlobal { name: Rc<String> },
     GetLocal { idx: u8 },
     SetLocal { idx: u8 },
+    JumpIfFalse { offset: u16 },
 }
 
 #[derive(Debug)]
@@ -59,6 +60,7 @@ enum OpCode {
     SetGlobalLong,
     GetLocal,
     SetLocal,
+    JumpIfFalse,
 }
 
 impl OpCode {
@@ -101,6 +103,7 @@ impl TryFrom<u8> for OpCode {
             22 => Ok(OpCode::SetGlobalLong),
             23 => Ok(OpCode::GetLocal),
             24 => Ok(OpCode::SetLocal),
+            25 => Ok(OpCode::JumpIfFalse),
             _ => Err(()),
         }
     }
@@ -156,6 +159,10 @@ impl Chunk {
                 self.code.push(24);
                 self.code.push(idx);
             }
+            Op::JumpIfFalse { offset } => {
+                self.code.push(25);
+                self.push_u16(offset);
+            }
         }
         self.push_line_no(line_no);
     }
@@ -173,8 +180,7 @@ impl Chunk {
             }
             U8_SIZE_PLUS_1..=U16_SIZE => {
                 self.code.push(long_op_code);
-                self.code.push(((const_idx as u16) & 0xFF) as u8);
-                self.code.push(((const_idx as u16) >> 8) as u8);
+                self.push_u16(const_idx as u16);
             }
             _ => panic!("Tried to store constant index {} as a u16", const_idx),
         }
@@ -192,6 +198,11 @@ impl Chunk {
             }
             None => self.line_nos.push((line_no, 1)),
         }
+    }
+
+    fn push_u16(&mut self, u16: u16) {
+        self.code.push(((u16 as u16) & 0xFF) as u8);
+        self.code.push(((u16 as u16) >> 8) as u8);
     }
 
     pub fn decode(&self, idx: usize) -> (Op, usize) {
@@ -266,6 +277,12 @@ impl Chunk {
                 },
                 2,
             ),
+            OpCode::JumpIfFalse => (
+                Op::JumpIfFalse {
+                    offset: self.get_u16(idx + 1),
+                },
+                3,
+            ),
         }
     }
 
@@ -275,10 +292,14 @@ impl Chunk {
     }
 
     fn get_const_long(&self, idx: usize) -> Value {
-        let lo = (self.code[idx + 1]) as u16;
-        let hi = (self.code[idx + 1]) as u16;
-        let const_idx = (hi << 8) + lo;
+        let const_idx = self.get_u16(idx + 1);
         self.constants[const_idx as usize].clone()
+    }
+
+    fn get_u16(&self, idx: usize) -> u16 {
+        let lo = (self.code[idx]) as u16;
+        let hi = (self.code[idx + 1]) as u16;
+        (hi << 8) + lo
     }
 
     pub fn get_line_no(&self, op_idx: usize) -> u32 {
