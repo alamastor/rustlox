@@ -127,11 +127,13 @@ impl<'a> Parser<'a> {
         self.consume(Token::RightParen, "Expect ')' after condition.".to_string());
 
         let then_jump = self.emit_jump(Op::JumpIfFalse { offset: 0xFFFF });
+        self.emit_byte(Op::Pop);
         self.statement();
 
         let else_jump = self.emit_jump(Op::Jump { offset: 0xFFFF });
 
         self.patch_jump(then_jump);
+        self.emit_byte(Op::Pop);
 
         if self.match_(Token::Else) {
             self.statement()
