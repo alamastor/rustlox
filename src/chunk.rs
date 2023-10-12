@@ -28,6 +28,8 @@ pub enum Op {
     DefineGlobal { name: Rc<String> },
     GetGlobal { name: Rc<String> },
     SetGlobal { name: Rc<String> },
+    GetLocal { idx: u8 },
+    SetLocal { idx: u8 },
 }
 
 #[derive(Debug)]
@@ -55,6 +57,8 @@ enum OpCode {
     GetGlobalLong,
     SetGlobal,
     SetGlobalLong,
+    GetLocal,
+    SetLocal,
 }
 
 impl OpCode {
@@ -95,6 +99,8 @@ impl TryFrom<u8> for OpCode {
             20 => Ok(OpCode::GetGlobalLong),
             21 => Ok(OpCode::SetGlobal),
             22 => Ok(OpCode::SetGlobalLong),
+            23 => Ok(OpCode::GetLocal),
+            24 => Ok(OpCode::SetLocal),
             _ => Err(()),
         }
     }
@@ -141,6 +147,14 @@ impl Chunk {
             }
             Op::SetGlobal { name } => {
                 self.push_constant_op(Value::Obj(Object::String { chars: name }), 21, 22)
+            }
+            Op::GetLocal { idx } => {
+                self.code.push(23);
+                self.code.push(idx);
+            }
+            Op::SetLocal { idx } => {
+                self.code.push(24);
+                self.code.push(idx);
             }
         }
         self.push_line_no(line_no);
@@ -240,6 +254,18 @@ impl Chunk {
                 Value::Obj(Object::String { chars: name }) => (Op::SetGlobal { name }, 3),
                 _ => panic!("Expected string object value!"),
             },
+            OpCode::GetLocal => (
+                Op::GetLocal {
+                    idx: self.code[idx + 1],
+                },
+                2,
+            ),
+            OpCode::SetLocal => (
+                Op::SetLocal {
+                    idx: self.code[idx + 1],
+                },
+                2,
+            ),
         }
     }
 

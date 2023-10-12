@@ -1,3 +1,5 @@
+use std::mem::size_of;
+
 use crate::chunk::{Chunk, Op};
 use crate::object::Object;
 use crate::scanner::{Scanner, Token, TokenData};
@@ -88,7 +90,9 @@ impl<'a> Parser<'a> {
     }
 
     fn block(&mut self) {
-        while self.prev_token.token != Token::RightBrace && self.prev_token.token != Token::Eof {
+        while self.scanner.peek().token != Token::RightBrace
+            && self.scanner.peek().token != Token::Eof
+        {
             self.declaration();
         }
 
@@ -260,14 +264,37 @@ impl<'a> Parser<'a> {
     }
 
     fn named_variable(&mut self, name: TokenData, can_assign: bool) {
-        let arg = self.identifier_constant(name);
-        let name = self.strings.new_string(arg);
+        let get_op;
+        let set_op;
+
+        if let Some(idx) = self.resolve_local(&name.token) {
+            get_op = Op::GetLocal { idx };
+            set_op = Op::SetLocal { idx };
+        } else {
+            let arg = self.identifier_constant(name);
+            let name = self.strings.new_string(arg);
+            get_op = Op::GetGlobal { name: name.clone() };
+            set_op = Op::SetGlobal { name: name.clone() };
+        }
+
         if can_assign && self.match_(Token::Equal) {
             self.expression();
-            self.emit_byte(Op::SetGlobal { name })
+            self.emit_byte(set_op);
         } else {
-            self.emit_byte(Op::GetGlobal { name })
+            self.emit_byte(get_op);
         }
+    }
+
+    fn resolve_local(&mut self, name: &Token) -> Option<u8> {
+        for (i, local) in self.compiler.locals.iter().enumerate().rev() {
+            if &local.name == name {
+                if local.depth == None {
+                    self.error("Can't read local variable in its own initializer.".to_string());
+                }
+                return Some(i as u8);
+            }
+        }
+        return None;
     }
 
     fn consume(&mut self, expected_token: Token, message: String) {
@@ -310,6 +337,13 @@ impl<'a> Parser<'a> {
 
     fn end_scope(&mut self) {
         self.compiler.scope_depth -= 1;
+
+        while let Some(local) = self.compiler.locals.last()
+            && let Some(depth) = local.depth && depth > self.compiler.scope_depth
+        {
+            self.emit_byte(Op::Pop);
+            self.compiler.locals.pop();
+        }
     }
 
     fn parse_precedence(&mut self, precedence: usize) {
@@ -353,16 +387,60 @@ impl<'a> Parser<'a> {
 
     fn parse_variable(&mut self, error_message: String) -> String {
         self.consume(Token::Identifier, error_message);
+
+        self.declare_variable();
+        if self.compiler.scope_depth > 0 {
+            return "".to_string();
+        }
+
         self.identifier_constant(self.prev_token)
     }
 
+    fn mark_initialized(&mut self) {
+        self.compiler.locals.last_mut().unwrap().depth = Some(self.compiler.scope_depth);
+    }
+
     fn define_variable(&mut self, name: String) {
+        if self.compiler.scope_depth > 0 {
+            self.mark_initialized();
+            return;
+        }
+
         let string = self.strings.new_string(name);
         self.emit_byte(Op::DefineGlobal { name: string })
     }
 
     fn identifier_constant(&mut self, token_data: TokenData) -> String {
         token_data.source.to_string()
+    }
+
+    fn add_local(&mut self, name: Token) {
+        let local = Local { name, depth: None };
+        if self.compiler.locals.len() >= size_of::<u8>() {
+            self.error("Too many locals".to_string());
+        } else {
+            self.compiler.locals.push(local);
+        }
+    }
+
+    fn declare_variable(&mut self) {
+        if self.compiler.scope_depth == 0 {
+            return;
+        }
+
+        let name = self.prev_token.token;
+        for local in self.compiler.locals.iter().rev() {
+            if let Some(depth) = local.depth && depth < self.compiler.scope_depth {
+                break;
+            }
+
+            if name == local.name {
+                self.error("Already a variable with this name in this scope.".to_string());
+                break;
+            }
+        }
+
+        self.add_local(name);
     }
 
     fn current_precedence(&mut self) -> Precedence {
@@ -417,7 +495,6 @@ fn error_at(token_data: &TokenData, message: String) {
 
 struct Compiler {
     locals: Vec<Local>,
-    local_count: usize,
     scope_depth: usize,
 }
 
@@ -425,7 +502,6 @@ impl Compiler {
     fn new() -> Self {
         Compiler {
             locals: vec![],
-            local_count: 0,
             scope_depth: 0,
         }
     }
@@ -433,5 +509,5 @@ impl Compiler {
 
 struct Local {
     name: Token,
-    depth: usize,
+    depth: Option<usize>,
 }

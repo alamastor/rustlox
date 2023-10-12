@@ -24,6 +24,22 @@ const RETURN_TRUE: &str = "true\n";
 var B = 5;\
 A = A + B;
 print A;", "8\n", "", Result::Ok(()))]
+#[case::local(
+"var a = 10;\
+{
+  var a = 3;\
+  print a;\
+}", "3\n", "", Result::Ok(()))]
+#[case::shadow_access(
+    "var a = 10;\
+{
+  var a = a + 3;\
+  print a;\
+}",
+    "",
+    "",
+    Result::Err(InterpretError::CompileError)
+)]
 fn interpreter(
     #[case] input: &str,
     #[case] expected_output: &str,

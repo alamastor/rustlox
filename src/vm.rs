@@ -125,6 +125,12 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 Op::Pop => {
                     self.pop();
                 }
+                Op::GetLocal { idx } => {
+                    self.push(self.stack[idx as usize].clone());
+                }
+                Op::SetLocal { idx } => {
+                    self.stack[idx as usize] = self.peek(0).clone();
+                }
                 Op::GetGlobal { name } => {
                     match self.globals.get(&name) {
                         Some(value) => self.push(value.to_owned()),
