@@ -58,6 +58,28 @@ print 2;
     "",
     Result::Ok(())
 )]
+#[case::else_(
+"if (false)
+  print 1;
+else
+  print 2;
+print 3;
+",
+    "2\n3\n",
+    "",
+    Result::Ok(())
+)]
+#[case::else_2(
+"if (true)
+  print 1;
+else
+  print 2;
+print 3;
+",
+    "1\n3\n",
+    "",
+    Result::Ok(())
+)]
 fn interpreter(
     #[case] input: &str,
     #[case] expected_output: &str,

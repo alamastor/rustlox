@@ -129,7 +129,14 @@ impl<'a> Parser<'a> {
         let then_jump = self.emit_jump(Op::JumpIfFalse { offset: 0xFFFF });
         self.statement();
 
+        let else_jump = self.emit_jump(Op::Jump { offset: 0xFFFF });
+
         self.patch_jump(then_jump);
+
+        if self.match_(Token::Else) {
+            self.statement()
+        }
+        self.patch_jump(else_jump);
     }
 
     fn declaration(&mut self) {
@@ -348,7 +355,6 @@ impl<'a> Parser<'a> {
     fn patch_jump(&mut self, offset: usize) {
         // -2 to adjust for the bytecode for the jump offset itself.
         let jump = self.chunk.code.len() - offset - 2;
-        println!("{} - {offset} - {jump}", self.chunk.code.len());
 
         if jump > u16::MAX as usize {
             self.error("Too much code to jump over.".to_string());

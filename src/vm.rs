@@ -187,9 +187,11 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 }
                 Op::JumpIfFalse {offset} => {
                     if is_falsey(self.peek(0)) {
-                        println!("Jumping {offset}");
                         self.ip+=offset as usize;
                     }
+                }
+                Op::Jump { offset } => {
+                    self.ip+=offset as usize;
                 }
             }
             self.ip += op_size;

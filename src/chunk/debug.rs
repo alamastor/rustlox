@@ -105,6 +105,9 @@ impl Chunk {
             OpCode::JumpIfFalse => {
                 println!("OP_JUMP_IF_FALSE      {idx} '{}'", self.get_u16(idx + 1));
             }
+            OpCode::Jump => {
+                println!("OP_JUMP               {idx} '{}'", self.get_u16(idx + 1));
+            }
         }
     }
 }
