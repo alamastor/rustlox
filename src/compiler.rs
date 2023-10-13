@@ -414,6 +414,7 @@ impl<'a> Parser<'a> {
                 Token::GreaterEqual => self.binary(),
                 Token::Less => self.binary(),
                 Token::LessEqual => self.binary(),
+                Token::And => self.and(),
                 _ => self.error("Expect expression".to_string()),
             }
         }
@@ -446,6 +447,15 @@ impl<'a> Parser<'a> {
 
         let string = self.strings.new_string(name);
         self.emit_byte(Op::DefineGlobal { name: string })
+    }
+
+    fn and(&mut self) {
+        let end_jump = self.emit_jump(Op::JumpIfFalse { offset: 0xFFFF });
+
+        self.emit_byte(Op::Pop);
+        self.parse_precedence(Precedence::And as usize);
+
+        self.patch_jump(end_jump);
     }
 
     fn identifier_constant(&mut self, token_data: TokenData) -> String {
@@ -519,6 +529,7 @@ impl Token {
             Token::GreaterEqual => Precedence::Comparison,
             Token::Less => Precedence::Comparison,
             Token::LessEqual => Precedence::Comparison,
+            Token::And =>Precedence::And,
             _ => Precedence::None,
         }
     }
