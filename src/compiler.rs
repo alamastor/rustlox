@@ -255,6 +255,17 @@ impl<'a> Parser<'a> {
         self.emit_constant(Value::Number(value));
     }
 
+    fn or(&mut self) {
+        let else_jump = self.emit_jump(Op::JumpIfFalse { offset: 0xFFFF });
+        let end_jump = self.emit_jump(Op::Jump { offset: 0xFFFF });
+
+        self.patch_jump(else_jump);
+        self.emit_byte(Op::Pop);
+
+        self.parse_precedence(Precedence::Or as usize);
+        self.patch_jump(end_jump);
+    }
+
     fn literal(&mut self) {
         match self.prev_token.token {
             Token::False => {
@@ -362,7 +373,7 @@ impl<'a> Parser<'a> {
             self.error("Too much code to jump over.".to_string());
         }
         self.chunk.code[offset] = (jump & 0xFF) as u8;
-        self.chunk.code[offset+1] = (jump >> 8) as u8;
+        self.chunk.code[offset + 1] = (jump >> 8) as u8;
     }
 
     fn end_compiler(&mut self) {
@@ -415,6 +426,7 @@ impl<'a> Parser<'a> {
                 Token::Less => self.binary(),
                 Token::LessEqual => self.binary(),
                 Token::And => self.and(),
+                Token::Or => self.or(),
                 _ => self.error("Expect expression".to_string()),
             }
         }
@@ -529,7 +541,8 @@ impl Token {
             Token::GreaterEqual => Precedence::Comparison,
             Token::Less => Precedence::Comparison,
             Token::LessEqual => Precedence::Comparison,
-            Token::And =>Precedence::And,
+            Token::And => Precedence::And,
+            Token::Or => Precedence::Or,
             _ => Precedence::None,
         }
     }

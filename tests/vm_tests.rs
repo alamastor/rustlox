@@ -82,6 +82,8 @@ print 3;
 )]
 #[case::and("print 1 and 2;", "2\n", "", Result::Ok(()))]
 #[case::and_2("print false and 1;", RETURN_FALSE, "", Result::Ok(()))]
+#[case::or("print 1 or 2;", "1\n", "", Result::Ok(()))]
+#[case::or("print false or 2;", "2\n", "", Result::Ok(()))]
 fn interpreter(
     #[case] input: &str,
     #[case] expected_output: &str,
