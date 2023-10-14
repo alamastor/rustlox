@@ -121,6 +121,50 @@ impl<'a> Parser<'a> {
         self.emit_byte(Op::Pop)
     }
 
+    fn for_statement(&mut self) {
+        self.begin_scope();
+        self.consume(Token::LeftParen, "Expect '(' after 'for'.".to_string());
+        if self.match_(Token::Semicolon) {
+            // No initializer.
+        } else if self.match_(Token::Var){
+            self.var_declaration();
+        } else {
+            self.expression_statement();
+        }
+
+        let mut loop_start = self.chunk.code.len();
+        let mut exit_jump = None;
+        if !self.match_(Token::Semicolon) {
+            self.expression();
+            self.consume(Token::Semicolon, "Expect ';'.".to_string());
+
+            // Jump out of the loop if the condition is false.
+            exit_jump = Some(self.emit_jump(Op::JumpIfFalse { offset: 0xFFFF }));
+            self.emit_byte(Op::Pop);
+        }
+
+        if !self.match_(Token::RightParen) {
+            let body_jump = self.emit_jump(Op::Jump { offset: 0xFFFF });
+            let increment_start = self.chunk.code.len();
+            self.expression();
+            self.emit_byte(Op::Pop);
+            self.consume(Token::RightParen, "Expect ')' after for clauses.".to_string());
+
+            self.emit_loop(loop_start);
+            loop_start = increment_start;
+            self.patch_jump(body_jump);
+        }
+
+        self.statement();
+        self.emit_loop(loop_start);
+
+        if let Some(exit_jump) = exit_jump {
+            self.patch_jump(exit_jump);
+            self.emit_byte(Op::Pop);
+        }
+        self.end_scope();
+    }
+
     fn if_statement(&mut self) {
         self.consume(Token::LeftParen, "Expect '(' after 'if'.".to_string());
         self.expression();
@@ -156,6 +200,8 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) {
         if self.match_(Token::Print) {
             self.print_statement();
+        } else if self.match_(Token::For) {
+            self.for_statement();
         } else if self.match_(Token::If) {
             self.if_statement();
         } else if self.match_(Token::While) {

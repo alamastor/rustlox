@@ -91,6 +91,7 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 }
                 println!();
             }
+            let mut ip_offset = 0;
             match op {
                 Op::Constant { value } => self.push(value),
                 Op::Return => {
@@ -185,19 +186,19 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 Op::Less => {
                     bool_bin_op!(self, <);
                 }
-                Op::JumpIfFalse {offset} => {
+                Op::JumpIfFalse { offset } => {
                     if is_falsey(self.peek(0)) {
-                        self.ip+=offset as usize;
+                        ip_offset = offset as isize;
                     }
                 }
                 Op::Jump { offset } => {
-                    self.ip+=offset as usize;
+                    ip_offset = offset as isize;
                 }
                 Op::Loop { offset } => {
-                    self.ip -= offset as usize;
+                    ip_offset = -(offset as isize);
                 }
             }
-            self.ip += op_size;
+            self.ip = (self.ip as isize + op_size as isize + ip_offset as isize) as usize;
         }
     }
 

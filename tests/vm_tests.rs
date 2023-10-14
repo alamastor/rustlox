@@ -96,6 +96,10 @@ while (a < 2)\
   a = a + 1;\
 }
 ", "\"Hi\"\n\"Hi\"\n", "", Result::Ok(()))]
+#[case::for_(
+"for (var i = 0; i <= 2; i = i + 1)
+  print i;
+", "0\n1\n2\n", "", Result::Ok(()))]
 fn interpreter(
     #[case] input: &str,
     #[case] expected_output: &str,
