@@ -1,7 +1,6 @@
 #![feature(round_char_boundary)]
 #![feature(let_chains)]
 #![feature(trace_macros)]
-#![feature(is_some_and)]
 #![allow(dead_code)]
 #![feature(hash_set_entry)]
 mod chunk;

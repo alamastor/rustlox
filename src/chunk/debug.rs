@@ -108,6 +108,9 @@ impl Chunk {
             OpCode::Jump => {
                 println!("OP_JUMP               {idx} '{}'", self.get_u16(idx + 1));
             }
+            OpCode::Loop => {
+                println!("OP_LOOP               {idx} '{}'", self.get_u16(idx + 1));
+            }
         }
     }
 }

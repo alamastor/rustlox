@@ -84,6 +84,18 @@ print 3;
 #[case::and_2("print false and 1;", RETURN_FALSE, "", Result::Ok(()))]
 #[case::or("print 1 or 2;", "1\n", "", Result::Ok(()))]
 #[case::or("print false or 2;", "2\n", "", Result::Ok(()))]
+#[case::gt("print 1 > 0;", RETURN_TRUE, "", Result::Ok(()))]
+#[case::ge("print 1 >= 1;", RETURN_TRUE, "", Result::Ok(()))]
+#[case::lt("print 1 < 2;", RETURN_TRUE, "", Result::Ok(()))]
+#[case::le("print 1 <= 1;", RETURN_TRUE, "", Result::Ok(()))]
+#[case::while_(
+"var a = 0;\
+while (a < 2)\
+{
+  print \"Hi\";\
+  a = a + 1;\
+}
+", "\"Hi\"\n\"Hi\"\n", "", Result::Ok(()))]
 fn interpreter(
     #[case] input: &str,
     #[case] expected_output: &str,

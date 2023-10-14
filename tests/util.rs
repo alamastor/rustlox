@@ -11,7 +11,10 @@ pub fn assert_interpreter_output(
     let mut out_cursor = Cursor::new(Vec::new());
     let mut err_cursor = Cursor::new(Vec::new());
 
-    assert_eq!(interpret(input, &mut out_cursor, &mut err_cursor), expected_result);
+    assert_eq!(
+        interpret(input, &mut out_cursor, &mut err_cursor),
+        expected_result
+    );
 
     assert_eq!(read_cursor(out_cursor), expected_output);
     assert_eq!(read_cursor(err_cursor), expected_error);

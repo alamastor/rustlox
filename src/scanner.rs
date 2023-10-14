@@ -106,7 +106,7 @@ impl<'a> Scanner<'a> {
                 self.next_char();
                 len += 1;
             } else {
-                break &self.source[start..start + len]
+                break &self.source[start..start + len];
             }
         } {
             "and" => Token::And,
@@ -159,7 +159,7 @@ impl<'a> Scanner<'a> {
     pub fn peek(&mut self) -> TokenData<'a> {
         let saved_idx = self.idx;
         let next_char = self.next_char();
-        let result  = self.char_to_token_data(next_char);
+        let result = self.char_to_token_data(next_char);
         self.idx = saved_idx;
         result
     }
@@ -227,10 +227,10 @@ impl<'a> Scanner<'a> {
                 _ => self.make_token_data(Token::Error(ErrorToken::InvalidToken(ch))),
             },
             None => TokenData {
-                token:Token::Eof,
+                token: Token::Eof,
                 line: self.line,
-                source:"",
-                start: self.idx
+                source: "",
+                start: self.idx,
             },
         }
     }

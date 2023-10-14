@@ -158,6 +158,8 @@ impl<'a> Parser<'a> {
             self.print_statement();
         } else if self.match_(Token::If) {
             self.if_statement();
+        } else if self.match_(Token::While) {
+            self.while_statement();
         } else if self.match_(Token::LeftBrace) {
             self.begin_scope();
             self.block();
@@ -171,6 +173,22 @@ impl<'a> Parser<'a> {
         self.expression();
         self.consume(Token::Semicolon, "Expect ';' after value.".to_string());
         self.emit_byte(Op::Print);
+    }
+
+    fn while_statement(&mut self) {
+        let loop_start = self.chunk.code.len();
+
+        self.consume(Token::LeftParen, "Expect '(' after 'while'.".to_string());
+        self.expression();
+        self.consume(Token::RightParen, "Expect ')' after 'while'.".to_string());
+
+        let exit_jump = self.emit_jump(Op::JumpIfFalse { offset: 0xFFFF });
+        self.emit_byte(Op::Pop);
+        self.statement();
+        self.emit_loop(loop_start);
+
+        self.patch_jump(exit_jump);
+        self.emit_byte(Op::Pop);
     }
 
     fn synchronize(&mut self) {
@@ -354,6 +372,16 @@ impl<'a> Parser<'a> {
     fn emit_bytes(&mut self, op_1: Op, op_2: Op) {
         self.emit_byte(op_1);
         self.emit_byte(op_2);
+    }
+
+    fn emit_loop(&mut self, loop_start: usize) {
+        let offset = self.chunk.code.len() - loop_start + 3;
+        if offset > u16::MAX as usize {
+            self.error("Loop body too large.".to_string());
+        }
+        self.emit_byte(Op::Loop {
+            offset: offset as u16,
+        })
     }
 
     fn emit_jump(&mut self, op: Op) -> usize {

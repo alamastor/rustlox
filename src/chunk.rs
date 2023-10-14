@@ -32,6 +32,7 @@ pub enum Op {
     SetLocal { idx: u8 },
     JumpIfFalse { offset: u16 },
     Jump { offset: u16 },
+    Loop { offset: u16 },
 }
 
 #[derive(Debug)]
@@ -63,6 +64,7 @@ enum OpCode {
     SetLocal,
     JumpIfFalse,
     Jump,
+    Loop,
 }
 
 impl OpCode {
@@ -107,6 +109,7 @@ impl TryFrom<u8> for OpCode {
             24 => Ok(OpCode::SetLocal),
             25 => Ok(OpCode::JumpIfFalse),
             26 => Ok(OpCode::Jump),
+            27 => Ok(OpCode::Loop),
             _ => Err(()),
         }
     }
@@ -168,6 +171,10 @@ impl Chunk {
             }
             Op::Jump { offset } => {
                 self.code.push(26);
+                self.push_u16(offset);
+            }
+            Op::Loop { offset } => {
+                self.code.push(27);
                 self.push_u16(offset);
             }
         }
@@ -295,7 +302,13 @@ impl Chunk {
                     offset: self.get_u16(idx + 1),
                 },
                 3,
-            )
+            ),
+            OpCode::Loop => (
+                Op::Loop {
+                    offset: self.get_u16(idx + 1),
+                },
+                3,
+            ),
         }
     }
 

@@ -5,10 +5,10 @@ use crate::strings::Strings;
 use crate::value::Value;
 use std::cmp;
 use std::collections::HashMap;
+use std::fmt::Write as FmtWrite;
 use std::io::Write;
 use std::rc::Rc;
 use std::slice::Iter;
-use std::fmt::Write as FmtWrite;
 
 pub fn interpret<O: std::io::Write, E: std::io::Write>(
     source: &str,
@@ -43,7 +43,7 @@ macro_rules! bool_bin_op {
             $self.pop();
             $self.pop();
 
-            $self.push(Value::Bool(a $op b));
+            $self.push(Value::Bool(b $op a));
         } else {
             $self.runtime_error("Operands must be numbers.".to_string());
         }
@@ -94,7 +94,7 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
             match op {
                 Op::Constant { value } => self.push(value),
                 Op::Return => {
-                    return Result::Ok(());
+                 return Result::Ok(());
                 }
                 Op::Print => {
                     let val = self.pop();
@@ -192,6 +192,9 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 }
                 Op::Jump { offset } => {
                     self.ip+=offset as usize;
+                }
+                Op::Loop { offset } => {
+                    self.ip -= offset as usize;
                 }
             }
             self.ip += op_size;

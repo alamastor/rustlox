@@ -6,7 +6,7 @@ pub struct Strings(HashSet<Rc<String>>);
 
 impl Strings {
     pub fn new() -> Self {
-        Strings (HashSet::new(),)
+        Strings(HashSet::new())
     }
 
     pub fn new_string(&mut self, string_data: String) -> Rc<String> {
