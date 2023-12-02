@@ -1,6 +1,6 @@
 use crate::chunk::{Chunk, Op};
 use crate::compiler;
-use crate::object::Object;
+use crate::object::{Function, Object};
 use crate::strings::Strings;
 use crate::value::Value;
 use std::cmp;
@@ -15,9 +15,9 @@ pub fn interpret<O: std::io::Write, E: std::io::Write>(
     out_stream: &mut O,
     err_stream: &mut E,
 ) -> Result<(), InterpretError> {
-    let (chunk, objects, strings) =
+    let (function, objects, strings) =
         compiler::compile(source).map_err(|_| InterpretError::CompileError)?;
-    VM::new(chunk, objects, strings, out_stream, err_stream).run()
+    VM::new(function, objects, strings, out_stream, err_stream).run()
 }
 
 macro_rules! bin_op {
@@ -51,9 +51,7 @@ macro_rules! bool_bin_op {
 }
 
 pub struct VM<'a, O: Write, E: Write> {
-    chunk: Chunk,
-    ip: usize,
-    stack: Vec<Value>,
+    frames: Vec<CallFrame>,
     objects: Vec<Object>,
     strings: Strings,
     globals: HashMap<Rc<String>, Value>,
@@ -62,18 +60,16 @@ pub struct VM<'a, O: Write, E: Write> {
 }
 impl<'a, O: Write, E: Write> VM<'a, O, E> {
     fn new(
-        chunk: Chunk,
+        function: Function,
         objects: Vec<Object>,
         strings: Strings,
         out_stream: &'a mut O,
         err_stream: &'a mut E,
     ) -> VM<'a, O, E> {
         VM {
-            chunk,
-            ip: 0,
             objects,
             strings,
-            stack: vec![],
+            frames: vec![CallFrame::new(function, vec![])],
             globals: HashMap::new(),
             out_stream,
             err_stream,
@@ -82,9 +78,16 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
 
     fn run(&mut self) -> Result<(), InterpretError> {
         loop {
-            let (op, op_size) = self.chunk.decode(self.ip);
+            let (op, op_size) = self
+                .current_frame()
+                .function
+                .chunk
+                .decode(self.current_frame().ip);
             if cfg!(feature = "trace") {
-                self.chunk.disassemble_code(self.ip);
+                self.current_frame()
+                    .function
+                    .chunk
+                    .disassemble_code(self.current_frame().ip);
                 print!("          ");
                 for val in self.iter() {
                     print!("[{val}]");
@@ -106,7 +109,7 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                         Value::Number(val) => {
                             let val = *val;
                             self.pop();
-                            self.stack.push(Value::Number(-val));
+                            self.current_frame_mut().slots.push(Value::Number(-val));
                         }
                         _ => {
                             return Result::Err(self.runtime_error("Operand must be a number.".to_string()));
@@ -126,10 +129,10 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                     self.pop();
                 }
                 Op::GetLocal { idx } => {
-                    self.push(self.stack[idx as usize].clone());
+                    self.push(self.current_frame().slots[idx as usize].clone());
                 }
                 Op::SetLocal { idx } => {
-                    self.stack[idx as usize] = self.peek(0).clone();
+                    self.current_frame_mut().slots[idx as usize] = self.peek(0).clone();
                 }
                 Op::GetGlobal { name } => {
                     match self.globals.get(&name) {
@@ -153,11 +156,11 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 Op::Add => {
                     if let Value::Obj(x) = self.peek(0) &&
                        let Object::String { chars: a } = x &&
-                       let Value::Obj(y) = self.peek(1)
+                       let Value::Obj(y) = self.peek(1) &&
+                        let Object::String { chars: b } = y
                     {
-                        let Object::String { chars: b } = y;
                         let new_string = self.strings.new_string((**b).to_owned() + &**a);
-                        self.stack.push(Value::Obj(Object::String { chars: new_string }));
+                        self.current_frame_mut().slots.push(Value::Obj(Object::String { chars: new_string }));
                     } else {
                         bin_op!(self, +);
                     }
@@ -173,7 +176,7 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                 }
                 Op::Not => {
                     let bool = Value::Bool(is_falsey(&self.pop()));
-                    self.stack.push(bool);
+                    self.current_frame_mut().slots.push(bool);
                 }
                 Op::Equal => {
                     let a = self.pop();
@@ -198,7 +201,8 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
                     ip_offset = -(offset as isize);
                 }
             }
-            self.ip = (self.ip as isize + op_size as isize + ip_offset as isize) as usize;
+            self.current_frame_mut().ip =
+                (self.current_frame().ip as isize + op_size as isize + ip_offset as isize) as usize;
         }
     }
 
@@ -206,31 +210,45 @@ impl<'a, O: Write, E: Write> VM<'a, O, E> {
         if cfg!(feature = "trace") {
             println!("Pushing {value}");
         }
-        self.stack.push(value);
+        self.current_frame_mut().slots.push(value);
     }
 
     fn pop(&mut self) -> Value {
-        match self.stack.pop() {
+        match self.current_frame_mut().slots.pop() {
             Some(x) => x,
             None => panic!("Tried to pop an empty stack!"),
         }
     }
 
     fn peek(&self, distance: usize) -> &Value {
-        &self.stack[self.stack.len() - 1 - distance]
+        &self.current_frame().slots[self.current_frame().slots.len() - 1 - distance]
     }
 
     fn iter(&self) -> Iter<'_, Value> {
-        self.stack.iter()
+        self.current_frame().slots.iter()
     }
 
     fn runtime_error(&mut self, mut message: String) -> InterpretError {
-        let line = self
-            .chunk
-            .get_line_no(self.chunk.get_op_idx(cmp::max(self.ip, 1) - 1));
+        let line = self.current_frame().function.chunk.get_line_no(
+            self.current_frame()
+                .function
+                .chunk
+                .get_op_idx(cmp::max(self.current_frame().ip, 1) - 1),
+        );
         writeln!(&mut message, "\n[line {line}] in script").unwrap();
-        self.stack = vec![];
         InterpretError::RuntimeError(message)
+    }
+
+    fn current_frame(&self) -> &CallFrame {
+        self.frames.last().unwrap()
+    }
+
+    fn current_frame_mut(&mut self) -> &mut CallFrame {
+        self.frames.last_mut().unwrap()
+    }
+
+    fn current_chunk(&mut self) -> &Chunk {
+        &self.current_frame().function.chunk
     }
 }
 
@@ -254,5 +272,21 @@ fn values_equal(a: Value, b: Value) -> bool {
         Value::Nil => true,
         Value::Number(_) => a == b,
         Value::Obj(_) => a == b,
+    }
+}
+
+struct CallFrame {
+    function: Function,
+    ip: usize,
+    slots: Vec<Value>,
+}
+
+impl CallFrame {
+    fn new(function: Function, slots: Vec<Value>) -> Self {
+        CallFrame {
+            function,
+            ip: 0,
+            slots,
+        }
     }
 }

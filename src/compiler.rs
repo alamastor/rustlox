@@ -1,15 +1,15 @@
 use std::mem::size_of;
 
 use crate::chunk::{Chunk, Op};
-use crate::object::Object;
+use crate::object::{Function, Object};
 use crate::scanner::{Scanner, Token, TokenData};
 use crate::strings::Strings;
 use crate::value::Value;
 
-pub fn compile(source: &str) -> Result<(Chunk, Vec<Object>, Strings), ()> {
+pub fn compile(source: &str) -> Result<(Function, Vec<Object>, Strings), ()> {
     let mut parser = Parser::new(source);
     if cfg!(feature = "trace") {
-        parser.chunk.disassemble("chunk");
+        parser.current_chunk().disassemble("chunk".to_string());
     }
 
     while !parser.match_(Token::Eof) {
@@ -20,14 +20,13 @@ pub fn compile(source: &str) -> Result<(Chunk, Vec<Object>, Strings), ()> {
     if parser.had_error {
         Err(())
     } else {
-        Ok((parser.chunk, parser.objects, parser.strings))
+        Ok((parser.compiler.function, parser.objects, parser.strings))
     }
 }
 
 struct Parser<'a> {
     scanner: Scanner<'a>,
     compiler: Compiler,
-    chunk: Chunk,
     prev_token: TokenData<'a>,
     objects: Vec<Object>,
     strings: Strings,
@@ -40,7 +39,6 @@ impl<'a> Parser<'a> {
         Parser {
             scanner: Scanner::new(source),
             compiler: Compiler::new(),
-            chunk: Chunk::new(),
             objects: vec![],
             strings: Strings::new(),
             prev_token: TokenData {
@@ -126,13 +124,13 @@ impl<'a> Parser<'a> {
         self.consume(Token::LeftParen, "Expect '(' after 'for'.".to_string());
         if self.match_(Token::Semicolon) {
             // No initializer.
-        } else if self.match_(Token::Var){
+        } else if self.match_(Token::Var) {
             self.var_declaration();
         } else {
             self.expression_statement();
         }
 
-        let mut loop_start = self.chunk.code.len();
+        let mut loop_start = self.current_chunk().code.len();
         let mut exit_jump = None;
         if !self.match_(Token::Semicolon) {
             self.expression();
@@ -145,10 +143,13 @@ impl<'a> Parser<'a> {
 
         if !self.match_(Token::RightParen) {
             let body_jump = self.emit_jump(Op::Jump { offset: 0xFFFF });
-            let increment_start = self.chunk.code.len();
+            let increment_start = self.current_chunk().code.len();
             self.expression();
             self.emit_byte(Op::Pop);
-            self.consume(Token::RightParen, "Expect ')' after for clauses.".to_string());
+            self.consume(
+                Token::RightParen,
+                "Expect ')' after for clauses.".to_string(),
+            );
 
             self.emit_loop(loop_start);
             loop_start = increment_start;
@@ -222,7 +223,7 @@ impl<'a> Parser<'a> {
     }
 
     fn while_statement(&mut self) {
-        let loop_start = self.chunk.code.len();
+        let loop_start = self.current_chunk().code.len();
 
         self.consume(Token::LeftParen, "Expect '(' after 'while'.".to_string());
         self.expression();
@@ -412,7 +413,8 @@ impl<'a> Parser<'a> {
     }
 
     fn emit_byte(&mut self, op: Op) {
-        self.chunk.push_op_code(op, self.prev_token.line)
+        let line = self.prev_token.line;
+        self.current_chunk().push_op_code(op, line)
     }
 
     fn emit_bytes(&mut self, op_1: Op, op_2: Op) {
@@ -421,7 +423,7 @@ impl<'a> Parser<'a> {
     }
 
     fn emit_loop(&mut self, loop_start: usize) {
-        let offset = self.chunk.code.len() - loop_start + 3;
+        let offset = self.current_chunk().code.len() - loop_start + 3;
         if offset > u16::MAX as usize {
             self.error("Loop body too large.".to_string());
         }
@@ -432,7 +434,7 @@ impl<'a> Parser<'a> {
 
     fn emit_jump(&mut self, op: Op) -> usize {
         self.emit_byte(op);
-        return self.chunk.code.len() - 2;
+        return self.current_chunk().code.len() - 2;
     }
 
     fn emit_constant(&mut self, value: Value) {
@@ -441,17 +443,22 @@ impl<'a> Parser<'a> {
 
     fn patch_jump(&mut self, offset: usize) {
         // -2 to adjust for the bytecode for the jump offset itself.
-        let jump = self.chunk.code.len() - offset - 2;
+        let jump = self.current_chunk().code.len() - offset - 2;
 
         if jump > u16::MAX as usize {
             self.error("Too much code to jump over.".to_string());
         }
-        self.chunk.code[offset] = (jump & 0xFF) as u8;
-        self.chunk.code[offset + 1] = (jump >> 8) as u8;
+        self.current_chunk().code[offset] = (jump & 0xFF) as u8;
+        self.current_chunk().code[offset + 1] = (jump >> 8) as u8;
     }
 
     fn end_compiler(&mut self) {
-        self.emit_byte(Op::Return)
+        self.emit_byte(Op::Return);
+        if cfg!(feature = "trace") {
+            let name = self.compiler.function.name.clone();
+            let name = name.unwrap_or("<script>".to_string());
+            self.current_chunk().disassemble(name);
+        }
     }
 
     fn begin_scope(&mut self) {
@@ -580,6 +587,10 @@ impl<'a> Parser<'a> {
     fn current_precedence(&mut self) -> Precedence {
         self.scanner.peek().token.get_precedence()
     }
+
+    fn current_chunk(&mut self) -> &mut Chunk {
+        &mut self.compiler.function.chunk
+    }
 }
 
 enum Precedence {
@@ -632,6 +643,8 @@ fn error_at(token_data: &TokenData, message: String) {
 struct Compiler {
     locals: Vec<Local>,
     scope_depth: usize,
+    function: Function,
+    function_type: FunctionType,
 }
 
 impl Compiler {
@@ -639,6 +652,8 @@ impl Compiler {
         Compiler {
             locals: vec![],
             scope_depth: 0,
+            function: Function::new(None),
+            function_type: FunctionType::Script,
         }
     }
 }
@@ -646,4 +661,9 @@ impl Compiler {
 struct Local {
     name: Token,
     depth: Option<usize>,
+}
+
+enum FunctionType {
+    Function,
+    Script,
 }

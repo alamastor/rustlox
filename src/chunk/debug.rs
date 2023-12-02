@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use super::Chunk;
 
 impl Chunk {
-    pub fn disassemble(&self, name: &str) {
+    pub fn disassemble(&self, name: String) {
         println!("== {name} ==");
         let mut code_idx = 0;
         let mut op_idx = 0;
